@@ -109,8 +109,13 @@ func (r *CmdRunner) Run(ctx context.Context, args []string, stdoutLine func(stri
 		}
 	}()
 
-	waitErr := cmd.Wait()
+	// Drain stdout fully before calling Wait. Wait closes the StdoutPipe, so
+	// waiting first can close the pipe before the scanner has read it, losing
+	// output (a race that shows up under load as empty/truncated JSON). The
+	// scanner reaches EOF when the process exits; on context cancellation the
+	// whole process group is killed, which also closes stdout.
 	wg.Wait()
+	waitErr := cmd.Wait()
 
 	code := 0
 	if waitErr != nil {
