@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run 01A2 · restoredrill</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">restoredrill</a>
+  <span class="tag">prove your backups restore</span>
+</header>
+<main>
+
+<nav class="crumbs"><a href="/">Overview</a> / <a href="/drills/alpha">alpha</a> / run</nav>
+<h1>Run 01A2 <span class="badge fail" id="run-status">✘ fail</span></h1>
+
+<dl class="run-meta">
+<dt>Snapshot</dt><dd><code>snap01A2</code></dd>
+<dt>Snapshot time</dt><dd>2026-01-15 09:00:00</dd>
+<dt>Snapshot host</dt><dd>location1</dd>
+<dt>Started</dt><dd>2026-01-15 11:30:00</dd>
+<dt>Finished</dt><dd>2026-01-15 11:31:30</dd>
+<dt>Trigger</dt><dd>schedule</dd>
+<dt>Restored</dt><dd>2.0 KiB in 4 file(s), restore took 1.5s</dd>
+
+
+</dl>
+
+<h2>Steps</h2>
+<table class="steps">
+<thead><tr><th>Step</th><th>Started</th><th>Duration</th><th>Events</th><th>Level</th></tr></thead>
+<tbody>
+
+<tr><td>preflight</td><td>2026-01-15 11:30:00</td><td>3m 00s</td><td>4</td><td>info</td></tr>
+
+</tbody>
+</table>
+
+<h2>Checks</h2>
+<table class="checks">
+<thead><tr><th>#</th><th>Name</th><th>Type</th><th>Phase</th><th>Status</th><th>Duration</th><th>Message</th></tr></thead>
+<tbody>
+
+<tr>
+<td>0</td>
+<td>files_exist[0]</td>
+<td><code>files_exist</code></td>
+<td>data</td>
+<td><span class="badge fail">✘ fail</span></td>
+<td>12ms</td>
+<td>missing 1 of 1 paths<details><summary>details</summary><pre>{
+  &#34;missing&#34;: [
+    &#34;srv/app&#34;
+  ]
+}</pre></details></td>
+</tr>
+
+</tbody>
+</table>
+
+<h2>Log 
+<a class="small" href="/runs/01A2/logs.txt">download full log</a></h2>
+<pre class="log" id="log" data-running="false" data-events="/runs/01A2/events">2026-01-15 11:30:00 info preflight restic backend ready
+2026-01-15 11:31:00 info preflight selected snapshot snap01A2
+2026-01-15 11:32:00 info preflight restore started
+2026-01-15 11:33:00 info preflight files_exist[0]: fail — missing 1 of 1 paths
+</pre>
+
+
+</main>
+<footer>restoredrill is read-only towards your repositories.</footer>
+</body>
+</html>

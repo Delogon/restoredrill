@@ -1,0 +1,7 @@
+{{define "content"}}
+<nav class="crumbs"><a href="/">Overview</a> / <a href="/drills/{{.Run.Drill}}">{{.Run.Drill}}</a> / live</nav>
+<h1>Live run <span class="badge {{.Run.Status}}" id="run-status">{{icon .Run.Status}} {{.Run.Status}}</span></h1>
+<p>Run <a href="/runs/{{.Run.ID}}"><code>{{.Run.ID}}</code></a> — the log below streams while the run is active.</p>
+<pre class="log live" id="log" data-running="{{.Running}}" data-events="/runs/{{.Run.ID}}/events">{{range .Logs}}{{fmtTime .TS}} {{.Level}} {{.Step}} {{.Message}}
+{{end}}</pre>
+{{end}}

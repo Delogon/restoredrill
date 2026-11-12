@@ -1,0 +1,24 @@
+{{define "overview_rows"}}
+{{range .Rows}}
+<tr>
+<td><a href="/drills/{{.Name}}">{{.Name}}</a>{{if .Schedule}}<div class="muted small">{{.Schedule}}</div>{{end}}</td>
+<td>{{if .Running}}<span class="badge running">⟳ running</span>
+{{else if .Last}}<span class="badge {{.Last.Status}}">{{icon .Last.Status}} {{.Last.Status}}</span>
+{{else}}<span class="badge none">· never run</span>{{end}}</td>
+<td>{{if .Last}}<a href="/runs/{{.Last.ID}}">{{ago .Last.StartedAt}}</a>{{else}}—{{end}}</td>
+<td>{{if .LastPass}}{{ago .LastPass.FinishedAt}}{{else}}never{{end}}</td>
+<td>{{if .Last}}{{ageOf .Last.SnapshotTime}}{{else}}—{{end}}</td>
+<td>{{if .Last}}{{durMS .Duration.Milliseconds}}{{else}}—{{end}}</td>
+<td class="squares">{{range .Squares}}<a class="sq {{.Status}}" href="/runs/{{.ID}}" title="{{.Status}} — {{fmtTime .StartedAt}}">{{icon .Status}}</a>{{end}}</td>
+<td>{{if not .NextRun.IsZero}}{{fmtTime .NextRun}}{{else if .Schedule}}—{{else}}<span class="muted">manual</span>{{end}}</td>
+<td>
+<form method="post" action="/drills/{{.Name}}/run">
+<input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+<button type="submit" class="run-now">Run now</button>
+</form>
+</td>
+</tr>
+{{else}}
+<tr><td colspan="9">No drills are defined in the configuration.</td></tr>
+{{end}}
+{{end}}

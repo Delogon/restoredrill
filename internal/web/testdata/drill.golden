@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drill: alpha · restoredrill</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">restoredrill</a>
+  <span class="tag">prove your backups restore</span>
+</header>
+<main>
+
+<nav class="crumbs"><a href="/">Overview</a> / alpha</nav>
+<h1>alpha</h1>
+
+<section class="meta">
+<div>Schedule: <code>30 4 * * *</code></div>
+<div>Next run: —</div>
+<form method="post" action="/drills/alpha/run">
+<input type="hidden" name="csrf_token" value="c2e5e486b72b14b30a9cca3f2dc1a998b1c7991cc896b404e5fdfc51612f1f5f">
+<button type="submit" class="run-now">Run now</button>
+</form>
+</section>
+
+<section>
+<h2>Trends <span class="muted small">(last 30 runs, oldest → newest)</span></h2>
+<div class="trends">
+<div class="trend"><span class="trend-label">Restored size</span> <svg class="spark" viewBox="0 0 120 32" width="120" height="32" role="img" aria-label="trend"><polyline points="0.0,30.0 120.0,30.0"/></svg></div>
+<div class="trend"><span class="trend-label">Duration</span> <svg class="spark" viewBox="0 0 120 32" width="120" height="32" role="img" aria-label="trend"><polyline points="0.0,30.0 120.0,30.0"/></svg></div>
+</div>
+</section>
+
+<section>
+<h2>Run history <span class="muted small">(2 total)</span></h2>
+<table class="runs">
+<thead><tr><th>Status</th><th>Started</th><th>Trigger</th><th>Snapshot</th><th>Duration</th><th>Restored</th><th></th></tr></thead>
+<tbody>
+
+<tr>
+<td><span class="badge fail">✘ fail</span></td>
+<td>2026-01-15 11:30:00</td>
+<td>schedule</td>
+<td><code class="small">snap01A2</code></td>
+<td>1m 30s</td>
+<td>2.0 KiB</td>
+<td><a href="/runs/01A2">details</a></td>
+</tr>
+
+<tr>
+<td><span class="badge pass">✔ pass</span></td>
+<td>2026-01-15 10:00:00</td>
+<td>schedule</td>
+<td><code class="small">snap01A1</code></td>
+<td>1m 30s</td>
+<td>2.0 KiB</td>
+<td><a href="/runs/01A1">details</a></td>
+</tr>
+
+</tbody>
+</table>
+<nav class="pager">
+
+
+</nav>
+</section>
+
+<section>
+<h2>Resolved configuration <span class="muted small">(secrets redacted)</span></h2>
+<pre class="config">drill:
+    repository: r
+    schedule: 30 4 * * *
+    snapshot:
+        select: latest
+    restore:
+        paths:
+            - /srv/app
+    checks:
+        - type: files_exist
+          paths:
+            - srv/app
+repository:
+    type: restic
+    repository: /var/backups/restic-repo
+    no_lock: false
+    env: {}
+    password_file: /run/secrets/repo.pass
+    password_command: &#34;&#34;
+    password: &#34;&#34;
+    passcommand: &#34;&#34;
+    passphrase: &#34;&#34;
+</pre>
+</section>
+
+</main>
+<footer>restoredrill is read-only towards your repositories.</footer>
+</body>
+</html>

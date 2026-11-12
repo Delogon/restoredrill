@@ -132,3 +132,24 @@ func TestCLIUsageErrorExitCode(t *testing.T) {
 		t.Fatalf("expected exit 2 for config error, got %d", code)
 	}
 }
+
+// TestCLIServeRefusesUnsafeBind confirms serve fails closed (exit 2) when asked
+// to bind a non-loopback address without auth, and never starts listening.
+func TestCLIServeRefusesUnsafeBind(t *testing.T) {
+	dir := t.TempDir()
+	cfg := "version: 1\nstate_dir: " + filepath.Join(dir, "state") + "\nwork_dir: " + filepath.Join(dir, "work") +
+		"\nserver:\n  listen: 0.0.0.0:8484\n  auth:\n    mode: none\n" +
+		"repositories:\n  r:\n    type: restic\n    repository: " + filepath.Join(dir, "repo") +
+		"\ndrills:\n  d:\n    repository: r\n    snapshot: {select: latest}\n    restore:\n      paths: [" + filepath.Join(dir, "data") + "]" +
+		"\n    checks:\n      - type: files_exist\n        paths: ['**/*.txt']\n"
+	cfgPath := filepath.Join(dir, "restoredrill.yaml")
+	os.WriteFile(cfgPath, []byte(cfg), 0o600)
+
+	out, code := runCLI(t, dir, "serve", "--config", cfgPath)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for unsafe bind, got %d: %s", code, out)
+	}
+	if !strings.Contains(out, "auth") && !strings.Contains(out, "loopback") && !strings.Contains(out, "bind") {
+		t.Fatalf("expected an actionable bind/auth refusal, got: %s", out)
+	}
+}

@@ -1,0 +1,52 @@
+{{define "content"}}
+<nav class="crumbs"><a href="/">Overview</a> / {{.Name}}</nav>
+<h1>{{.Name}}</h1>
+
+<section class="meta">
+<div>Schedule: {{if .Schedule}}<code>{{.Schedule}}</code>{{else}}<span class="muted">manual only</span>{{end}}</div>
+<div>Next run: {{if not .NextRun.IsZero}}{{fmtTime .NextRun}}{{else}}—{{end}}</div>
+<form method="post" action="/drills/{{.Name}}/run">
+<input type="hidden" name="csrf_token" value="{{.CSRF}}">
+<button type="submit" class="run-now">Run now</button>
+</form>
+</section>
+
+<section>
+<h2>Trends <span class="muted small">(last 30 runs, oldest → newest)</span></h2>
+<div class="trends">
+<div class="trend"><span class="trend-label">Restored size</span> {{.SizeSpark}}</div>
+<div class="trend"><span class="trend-label">Duration</span> {{.DurSpark}}</div>
+</div>
+</section>
+
+<section>
+<h2>Run history <span class="muted small">({{.Total}} total)</span></h2>
+<table class="runs">
+<thead><tr><th>Status</th><th>Started</th><th>Trigger</th><th>Snapshot</th><th>Duration</th><th>Restored</th><th></th></tr></thead>
+<tbody>
+{{range .Runs}}
+<tr>
+<td><span class="badge {{.Status}}">{{icon .Status}} {{.Status}}</span></td>
+<td>{{fmtTime .StartedAt}}</td>
+<td>{{.Trigger}}</td>
+<td>{{if .SnapshotID}}<code class="small">{{.SnapshotID}}</code>{{else}}—{{end}}</td>
+<td>{{between .FinishedAt .StartedAt}}</td>
+<td>{{if .RestoredBytes}}{{fmtBytes .RestoredBytes}}{{else}}—{{end}}</td>
+<td><a href="/runs/{{.ID}}">details</a></td>
+</tr>
+{{else}}
+<tr><td colspan="7">No runs yet.</td></tr>
+{{end}}
+</tbody>
+</table>
+<nav class="pager">
+{{if .HasPrev}}<a href="/drills/{{.Name}}?limit={{.Limit}}&offset={{.PrevOffset}}">← newer</a>{{end}}
+{{if .HasNext}}<a href="/drills/{{.Name}}?limit={{.Limit}}&offset={{.NextOffset}}">older →</a>{{end}}
+</nav>
+</section>
+
+<section>
+<h2>Resolved configuration <span class="muted small">(secrets redacted)</span></h2>
+<pre class="config">{{.ConfigYAML}}</pre>
+</section>
+{{end}}

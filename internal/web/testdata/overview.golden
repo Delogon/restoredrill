@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · restoredrill</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">restoredrill</a>
+  <span class="tag">prove your backups restore</span>
+</header>
+<main>
+
+<h1>Overview</h1>
+<p class="summary">2 drill(s). Status is shown with text and icon; the last 30 runs appear as squares (newest left).</p>
+<table class="overview" id="overview-table" data-sse="/events" data-partial="/partials/overview">
+<thead>
+<tr>
+<th>Drill</th><th>Status</th><th>Last run</th><th>Last success</th>
+<th>Snapshot age</th><th>Duration</th><th>Last 30 runs</th><th>Next run</th><th>Action</th>
+</tr>
+</thead>
+<tbody>
+
+
+<tr>
+<td><a href="/drills/alpha">alpha</a><div class="muted small">30 4 * * *</div></td>
+<td><span class="badge fail">✘ fail</span>
+</td>
+<td><a href="/runs/01A2">30m ago</a></td>
+<td>1h ago</td>
+<td>3h 00m</td>
+<td>1m 30s</td>
+<td class="squares"><a class="sq fail" href="/runs/01A2" title="fail — 2026-01-15 11:30:00">✘</a><a class="sq pass" href="/runs/01A1" title="pass — 2026-01-15 10:00:00">✔</a></td>
+<td>—</td>
+<td>
+<form method="post" action="/drills/alpha/run">
+<input type="hidden" name="csrf_token" value="c2e5e486b72b14b30a9cca3f2dc1a998b1c7991cc896b404e5fdfc51612f1f5f">
+<button type="submit" class="run-now">Run now</button>
+</form>
+</td>
+</tr>
+
+<tr>
+<td><a href="/drills/beta">beta</a></td>
+<td><span class="badge error">⚠ error</span>
+</td>
+<td><a href="/runs/01B1">1h ago</a></td>
+<td>never</td>
+<td>3h 00m</td>
+<td>1m 30s</td>
+<td class="squares"><a class="sq error" href="/runs/01B1" title="error — 2026-01-15 11:00:00">⚠</a></td>
+<td><span class="muted">manual</span></td>
+<td>
+<form method="post" action="/drills/beta/run">
+<input type="hidden" name="csrf_token" value="c2e5e486b72b14b30a9cca3f2dc1a998b1c7991cc896b404e5fdfc51612f1f5f">
+<button type="submit" class="run-now">Run now</button>
+</form>
+</td>
+</tr>
+
+
+</tbody>
+</table>
+
+</main>
+<footer>restoredrill is read-only towards your repositories.</footer>
+</body>
+</html>

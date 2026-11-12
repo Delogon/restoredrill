@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>Overview</h1>
+<p class="summary">{{len .Rows}} drill(s). Status is shown with text and icon; the last 30 runs appear as squares (newest left).</p>
+<table class="overview" id="overview-table" data-sse="/events" data-partial="/partials/overview">
+<thead>
+<tr>
+<th>Drill</th><th>Status</th><th>Last run</th><th>Last success</th>
+<th>Snapshot age</th><th>Duration</th><th>Last 30 runs</th><th>Next run</th><th>Action</th>
+</tr>
+</thead>
+<tbody>
+{{template "overview_rows" .}}
+</tbody>
+</table>
+{{end}}

@@ -1,0 +1,20 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · restoredrill</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">restoredrill</a>
+  <span class="tag">prove your backups restore</span>
+</header>
+<main>
+{{template "content" .}}
+</main>
+<footer>restoredrill is read-only towards your repositories.</footer>
+</body>
+</html>{{end}}

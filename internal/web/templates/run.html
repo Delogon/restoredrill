@@ -1,0 +1,54 @@
+{{define "content"}}
+<nav class="crumbs"><a href="/">Overview</a> / <a href="/drills/{{.Run.Drill}}">{{.Run.Drill}}</a> / run</nav>
+<h1>Run {{.Run.ID}} <span class="badge {{.Run.Status}}" id="run-status">{{icon .Run.Status}} {{.Run.Status}}</span></h1>
+
+<dl class="run-meta">
+<dt>Snapshot</dt><dd>{{if .Run.SnapshotID}}<code>{{.Run.SnapshotID}}</code>{{else}}—{{end}}</dd>
+<dt>Snapshot time</dt><dd>{{fmtTime .Run.SnapshotTime}}</dd>
+<dt>Snapshot host</dt><dd>{{if .Run.SnapshotHost}}{{.Run.SnapshotHost}}{{else}}—{{end}}</dd>
+<dt>Started</dt><dd>{{fmtTime .Run.StartedAt}}</dd>
+<dt>Finished</dt><dd>{{fmtTime .Run.FinishedAt}}</dd>
+<dt>Trigger</dt><dd>{{.Run.Trigger}}</dd>
+<dt>Restored</dt><dd>{{if .Run.RestoredBytes}}{{fmtBytes .Run.RestoredBytes}} in {{.Run.RestoredFiles}} file(s), restore took {{durSecs .Run.RestoreSeconds}}{{else}}—{{end}}</dd>
+{{if .Run.ErrorMessage}}<dt>Error</dt><dd class="errmsg">{{if .Run.ErrorKind}}{{.Run.ErrorKind}}: {{end}}{{.Run.ErrorMessage}}</dd>{{end}}
+{{if .Run.KeptPath}}<dt>Kept sandbox</dt><dd><code>{{.Run.KeptPath}}</code> <span class="muted small">(expires after keep_ttl)</span></dd>{{end}}
+</dl>
+
+<h2>Steps</h2>
+<table class="steps">
+<thead><tr><th>Step</th><th>Started</th><th>Duration</th><th>Events</th><th>Level</th></tr></thead>
+<tbody>
+{{range .Steps}}
+<tr><td>{{.Step}}</td><td>{{fmtTime .Started}}</td><td>{{durMS .Duration.Milliseconds}}</td><td>{{.Count}}</td><td>{{.Level}}</td></tr>
+{{else}}
+<tr><td colspan="5">No events recorded.</td></tr>
+{{end}}
+</tbody>
+</table>
+
+<h2>Checks</h2>
+<table class="checks">
+<thead><tr><th>#</th><th>Name</th><th>Type</th><th>Phase</th><th>Status</th><th>Duration</th><th>Message</th></tr></thead>
+<tbody>
+{{range .Checks}}
+<tr>
+<td>{{.Seq}}</td>
+<td>{{.Name}}</td>
+<td><code>{{.Type}}</code></td>
+<td>{{.Phase}}</td>
+<td><span class="badge {{.Status}}">{{icon .Status}} {{.Status}}</span></td>
+<td>{{durMS .DurationMS}}</td>
+<td>{{.Message}}{{if .DetailsJSON}}<details><summary>details</summary><pre>{{prettyJSON .DetailsJSON}}</pre></details>{{end}}</td>
+</tr>
+{{else}}
+<tr><td colspan="7">No checks recorded.</td></tr>
+{{end}}
+</tbody>
+</table>
+
+<h2>Log {{if gt .LogTotal 200}}<span class="muted small">(last 200 of {{.LogTotal}} lines)</span>{{end}}
+<a class="small" href="/runs/{{.Run.ID}}/logs.txt">download full log</a></h2>
+<pre class="log" id="log" data-running="{{.Running}}" data-events="/runs/{{.Run.ID}}/events">{{range .Logs}}{{fmtTime .TS}} {{.Level}} {{.Step}} {{.Message}}
+{{end}}</pre>
+{{if .Running}}<p><a href="/runs/{{.Run.ID}}/live">Open live view</a></p>{{end}}
+{{end}}
