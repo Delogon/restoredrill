@@ -198,9 +198,10 @@ func validateServer(c *Config, add func(string, ...any)) {
 }
 
 func isLoopbackHost(host string) bool {
-	if host == "localhost" || host == "" {
+	if host == "localhost" {
 		return true
 	}
+	// An empty host (":8484") binds every interface, so it is NOT loopback.
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
