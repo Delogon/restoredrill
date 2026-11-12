@@ -80,6 +80,44 @@ rationale for each. The guiding rule: when in doubt, choose the safer option
   any restore starts. Note: on hosts where `work_dir` is a small tmpfs this
   legitimately errors; point `work_dir` at a disk with room.
 
+## Containers and sandbox (M3)
+
+- **Minimal Docker Engine API client, standard library only.** `internal/sandbox`
+  speaks plain HTTP over the Docker-compatible socket (`DOCKER_HOST`, default
+  `/var/run/docker.sock`; works with rootless Podman). No Docker SDK dependency.
+- **Isolated network, no egress.** Each run gets a bridge network created with
+  `Internal: true`, so restored services cannot reach the internet or publish
+  ports. Service containers are hardened: `no-new-privileges`, `CapDrop: ALL`,
+  optional CPU/memory limits from `defaults.resources` / per-service `resources`,
+  and every container/network is labelled `restoredrill.run=<id>` +
+  `restoredrill.managed=true`.
+- **Probe container uses the tool's own image** with a hidden `restoredrill
+  probe` subcommand (`probe http`, `probe wait`), so HTTP checks need no curl
+  image (plan §8). The probe container is created **lazily** on the first HTTP
+  probe: drills without HTTP checks (e.g. `postgres_restore` only) never pull the
+  probe image. Override the image with `RESTOREDRILL_PROBE_IMAGE`.
+- **Healthchecks are HTTP-based** (the only kind in v1). The implicit
+  `service_healthy` check polls the configured HTTP probe from the probe
+  container until the expectation is met or the timeout elapses; it does not
+  rely on a Docker `HEALTHCHECK` instruction. A service that never becomes
+  healthy is a **failed check**, not a lifecycle error.
+- **Teardown is guaranteed.** Containers, the network and the sandbox directory
+  are removed on failure, timeout, cancellation and panic (deferred teardown +
+  panic recovery). `keep_on_failure` / `--keep` retain only the sandbox directory
+  (containers are always removed); kept sandboxes expire after `keep_ttl`.
+- **Crash recovery / GC.** `run` and `serve` sweep leftovers at startup and
+  `restoredrill gc` does it on demand. GC removes labelled containers/networks
+  and sandbox directories for runs that are no longer active. **Only directories
+  whose name is a valid run ULID are touched** — anything else in `work_dir` is
+  left alone. If the container runtime is unreachable, directory cleanup still
+  happens and the container part is skipped with a warning.
+- **Container tests are behind the `docker` build tag** and are skipped when no
+  runtime is reachable. They build a tiny probe image (the tool binary on
+  busybox) and a busybox `httpd` image, then exercise a full service drill,
+  `postgres_restore`, egress blocking, teardown and GC. The busybox `httpd` test
+  image is built with a default `CMD` so no `command` field had to be added to
+  `Service` (the config format is unchanged after M1, per working rule #3).
+
 ## Web dashboard (M4)
 
 - htmx is replaced by a small hand-written JavaScript file (SSE updates + the

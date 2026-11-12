@@ -92,6 +92,55 @@ Every drill reports a clear status:
 
 If a run has both failed and errored checks, its status is **fail**.
 
+## Service drills (containers)
+
+A drill can start the restored data as real services and probe them. Add a
+`sandbox` block with `services`, then use `http` / `command` checks:
+
+```yaml
+drills:
+  service1:
+    repository: location1-restic
+    snapshot: { select: latest, tags: [service1], max_age: 26h }
+    restore:
+      paths: [/srv/service1/data]
+    sandbox:
+      services:
+        app:
+          image: service1/server:latest   # placeholder image — replace and pin in real use
+          mounts:
+            - { source: "${restore}/srv/service1/data", target: /data }
+          env: { APP_MODE: "restore-test" }
+          healthcheck:
+            http: { port: 80, path: /alive, expect: { status: 200 } }
+            timeout: 2m
+    checks:
+      - { type: sqlite_integrity, path: srv/service1/data/db.sqlite3 }
+      - { type: sqlite_query, path: srv/service1/data/db.sqlite3,
+          query: "SELECT count(*) FROM users", expect: { min: 1 } }
+      - { type: http, service: app, port: 80, path: /api/config,
+          expect: { status: 200, json: { path: $.version, exists: true } } }
+```
+
+How it stays safe and deterministic:
+
+- Each run gets an **isolated network with no egress**; services cannot reach
+  the internet. Containers run with `no-new-privileges`, all capabilities
+  dropped, and optional CPU/memory limits (`defaults.resources`).
+- A service's `healthcheck` becomes an implicit `service_healthy` check that
+  polls the HTTP probe until it succeeds or times out.
+- HTTP checks run from a **probe container** using restoredrill's own image
+  (hidden `probe` subcommand) — no curl image needed. Set
+  `RESTOREDRILL_PROBE_IMAGE` to use a locally built image.
+- Containers, the network and the sandbox are **always torn down**, even on
+  failure, timeout or Ctrl-C. `--keep` / `keep_on_failure` retain only the
+  sandbox directory for debugging; it expires after `keep_ttl`.
+- `restoredrill gc` (and automatic startup sweep in `run`/`serve`) removes
+  leftovers from crashed runs.
+
+See [examples/service-drill.yaml](examples/service-drill.yaml) for a runnable
+template.
+
 ## Commands
 
 ```

@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added — Milestone 3 (containers, services, probes, GC)
+
+- Container runtime over a minimal, standard-library Docker Engine API client
+  (Docker or rootless Podman socket). Each run gets an isolated **no-egress**
+  network; service containers are hardened (`no-new-privileges`, `CapDrop: ALL`,
+  CPU/memory limits) and labelled for recovery.
+- Service startup from restored data, with `${restore}` mounts, env, per-service
+  resources and user. HTTP healthchecks become an implicit `service_healthy`
+  check that polls the probe until healthy or timed out.
+- `http` and `command` checks, plus a **probe container** running the tool's own
+  image via a hidden `restoredrill probe` subcommand (no curl image needed). The
+  probe is created lazily, only when an HTTP probe is required.
+- Guaranteed teardown of containers, network and sandbox on failure, timeout,
+  cancellation and panic. `restoredrill gc` and an automatic startup sweep in
+  `run` remove leftovers from crashed runs; kept sandboxes expire after
+  `keep_ttl`. GC only touches directories named after a run ULID.
+- Container integration tests behind the `docker` build tag (full service drill,
+  `postgres_restore`, egress blocking, teardown and GC), skipped when no runtime
+  is reachable. Service-drill example and README/decisions documentation.
+
 ### Added — Milestone 2 (Borg, SQLite and Postgres checks)
 
 - Borg 1.2/1.4 adapter (refuses 2.x) sharing the same interface, restore layout
@@ -44,6 +64,7 @@ All notable changes to this project are documented here. The format is based on
 
 ### Notes
 
-- Container runtime, service checks, serve/dashboard, recipes and release
-  tooling land in milestones 3–5. `postgres_restore` and service drills need a
-  Docker/Podman socket and are exercised by the M3 container tests.
+- Serve/dashboard, recipes and release tooling land in milestones 4–5.
+  `postgres_restore` and service drills need a Docker/Podman socket and are
+  exercised by the `docker`-tagged container tests (run
+  `go test -tags docker ./...` on a host with a reachable socket).

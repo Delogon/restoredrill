@@ -376,6 +376,30 @@ func (s *Store) ActiveRuns() ([]Run, error) {
 	return out, rows.Err()
 }
 
+// ListKeptRuns returns runs whose sandbox was kept (kept_path set), for GC.
+func (s *Store) ListKeptRuns() ([]Run, error) {
+	rows, err := s.db.Query(`SELECT `+runCols+` FROM runs WHERE kept_path IS NOT NULL AND kept_path != ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Run
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ClearKeptPath forgets a kept sandbox after GC removed it.
+func (s *Store) ClearKeptPath(id string) error {
+	_, err := s.db.Exec(`UPDATE runs SET kept_path='' WHERE id=?`, id)
+	return err
+}
+
 // ApplyRetention keeps only the newest keep runs per drill.
 func (s *Store) ApplyRetention(drill string, keep int) error {
 	if keep < 1 {

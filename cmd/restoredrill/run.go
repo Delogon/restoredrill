@@ -52,6 +52,11 @@ var runCmd = &cobra.Command{
 		}
 		defer st.Close()
 
+		// Crash recovery: remove leftovers from runs that are no longer active.
+		if _, err := recoverLeftovers(cmd.Context(), cfg, st, log); err != nil {
+			log.Warn("crash recovery incomplete", "err", err)
+		}
+
 		// Cancel runs cleanly on SIGINT/SIGTERM so teardown still happens.
 		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer stop()

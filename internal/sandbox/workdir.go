@@ -45,6 +45,13 @@ func (s *Sandbox) Cleanup() error {
 // LabelKey is the container/directory label used for crash recovery and GC.
 const LabelKey = "restoredrill.run"
 
+// Mount is a bind mount of a restored path into a container.
+type Mount struct {
+	Source   string
+	Target   string
+	ReadOnly bool
+}
+
 // FreeBytes returns the free bytes on the filesystem containing path.
 func FreeBytes(path string) (uint64, error) {
 	return freeBytes(path)

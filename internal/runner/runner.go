@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,6 +15,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -43,11 +45,6 @@ type NotifyFunc func(ctx context.Context, run store.Run, results []store.CheckRe
 // MetricsFunc updates metrics after a run (wired in M4).
 type MetricsFunc func(run store.Run, results []store.CheckResult)
 
-// RuntimeFactory builds the container runtime for a drill (wired in M3). It
-// returns the runtime, a teardown function, and an error. nil means the drill
-// needs no containers.
-type RuntimeFactory func(ctx context.Context, sb *sandbox.Sandbox, drill config.Drill) (checks.ContainerRuntime, func(), error)
-
 // Runner executes drills.
 type Runner struct {
 	Cfg         *config.Config
@@ -56,7 +53,6 @@ type Runner struct {
 	Concurrency int
 	Notify      NotifyFunc
 	Metrics     MetricsFunc
-	Runtime     RuntimeFactory
 
 	sem        chan struct{}
 	mu         sync.Mutex
@@ -238,6 +234,24 @@ func (r *Runner) execute(ctx context.Context, run *store.Run, drill config.Drill
 	}
 	r.logEvent(run.ID, "info", "preflight", be.Kind()+" backend ready")
 
+	// Container preflight: verify Docker is reachable and pull all images now,
+	// before restoring anything (plan step 2).
+	needsContainers := drill.Sandbox != nil || drillNeedsContainerChecks(drill)
+	var dockerClient *sandbox.DockerClient
+	if needsContainers {
+		dockerClient, err = sandbox.NewDockerClient()
+		if err != nil {
+			return fail("docker", err.Error())
+		}
+		if err := dockerClient.Ping(ctx); err != nil {
+			return fail("docker", "Docker/Podman is not reachable — start the daemon or check DOCKER_HOST: "+err.Error())
+		}
+		if err := r.pullImages(ctx, dockerClient, drill, run.ID); err != nil {
+			return fail("docker", err.Error())
+		}
+		r.logEvent(run.ID, "info", "preflight", "container runtime ready, images pulled")
+	}
+
 	// Step 3: select snapshot.
 	filter := backend.SnapshotFilter{Tags: drill.Snapshot.Tags, Host: drill.Snapshot.Host, Paths: drill.Snapshot.Paths, ArchiveGlob: drill.Snapshot.ArchiveGlob}
 	snaps, err := be.ListSnapshots(ctx, filter)
@@ -314,15 +328,17 @@ func (r *Runner) execute(ctx context.Context, run *store.Run, drill config.Drill
 	run.RestoredFiles = files
 	r.logEvent(run.ID, "info", "restore", fmt.Sprintf("restored %d files, %d bytes in %.1fs", files, bytes, run.RestoreSeconds))
 
-	// Build the container runtime if the drill needs one (M3).
-	needsContainers := drill.Sandbox != nil || drillNeedsContainerChecks(drill)
-	if needsContainers && r.Runtime != nil {
-		runtime, runtimeTeardown, err = r.Runtime(ctx, sb, drill)
-		if err != nil {
+	// Build the container runtime: isolated network + probe container.
+	var rt *sandbox.Runtime
+	if needsContainers {
+		rt = sandbox.NewRuntime(dockerClient, run.ID, run.Drill, drill.Resources, func(msg string) {
+			r.logEvent(run.ID, "info", "sandbox", msg)
+		})
+		if err := rt.Init(ctx); err != nil {
 			return fail("docker", err.Error())
 		}
-	} else if needsContainers {
-		return fail("docker", "this drill needs containers but no container runtime is configured — ensure Docker/Podman is reachable")
+		runtime = rt
+		runtimeTeardown = func() { rt.Teardown(context.WithoutCancel(ctx)) }
 	}
 
 	// Steps 7-9: run checks (data phase, then services, then service phase).
@@ -397,10 +413,13 @@ func (r *Runner) runOneCheck(ctx context.Context, cctx *checks.Context, ch confi
 	return res
 }
 
-// startServices is implemented in M3 (services.go). For M1 it is a stub that
-// returns nil when there are no services.
+// startServices is implemented in containers.go. For file-only drills there
+// is nothing to start.
 func (r *Runner) startServices(ctx context.Context, cctx *checks.Context, drill config.Drill, rt checks.ContainerRuntime) error {
-	return startServicesImpl(ctx, cctx, drill, rt, r)
+	if drill.Sandbox == nil || len(drill.Sandbox.Services) == 0 {
+		return nil
+	}
+	return startServicesContainers(ctx, cctx, drill, rt, r)
 }
 
 func (r *Runner) backendFor(repo config.Repository) (backend.Backend, error) {
@@ -483,14 +502,86 @@ func levelForStatus(status string) string {
 	}
 }
 
-// effectiveChecks prepends the implicit snapshot_age check from max_age.
+// effectiveChecks prepends the implicit snapshot_age check from max_age and
+// adds implicit service_healthy checks for services with a healthcheck (unless
+// the drill already declares one for that service).
 func effectiveChecks(drill config.Drill) []config.Check {
 	var out []config.Check
 	if drill.Snapshot.MaxAge > 0 {
 		out = append(out, config.Check{Type: "snapshot_age", Name: "snapshot_age", MaxAge: drill.Snapshot.MaxAge})
 	}
+	if drill.Sandbox != nil {
+		explicit := map[string]bool{}
+		for _, ch := range drill.Checks {
+			if ch.Type == "service_healthy" {
+				explicit[ch.Service] = true
+			}
+		}
+		names := make([]string, 0, len(drill.Sandbox.Services))
+		for n := range drill.Sandbox.Services {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			svc := drill.Sandbox.Services[n]
+			if svc.Healthcheck != nil && !explicit[n] {
+				ch := config.Check{Type: "service_healthy", Name: "service_healthy[" + n + "]", Service: n, Timeout: svc.Healthcheck.Timeout}
+				if hc := svc.Healthcheck.HTTP; hc != nil {
+					ch.Port = hc.Port
+					ch.Path = hc.Path
+					ch.Method = hc.Method
+					ch.Headers = hc.Headers
+					ch.Expect = hc.Expect
+				}
+				out = append(out, ch)
+			}
+		}
+	}
 	out = append(out, drill.Checks...)
 	return out
+}
+
+// pullImages pulls every image a drill will need, before restoring anything.
+func (r *Runner) pullImages(ctx context.Context, client *sandbox.DockerClient, drill config.Drill, runID string) error {
+	images := map[string]bool{}
+	if drillNeedsHTTPProbe(drill) {
+		images[sandbox.ProbeImage()] = true
+	}
+	if drill.Sandbox != nil {
+		for _, svc := range drill.Sandbox.Services {
+			images[svc.Image] = true
+		}
+	}
+	for _, ch := range drill.Checks {
+		if ch.Image != "" {
+			images[ch.Image] = true
+		}
+	}
+	for img := range images {
+		r.logEvent(runID, "info", "preflight", "pulling image "+img)
+		if err := client.EnsureImage(ctx, img); err != nil {
+			return fmt.Errorf("cannot pull image %s: %w", img, err)
+		}
+	}
+	return nil
+}
+
+// drillNeedsHTTPProbe reports whether any check or service healthcheck issues
+// an HTTP probe (and therefore needs the probe container image).
+func drillNeedsHTTPProbe(drill config.Drill) bool {
+	for _, ch := range drill.Checks {
+		if ch.Type == "http" {
+			return true
+		}
+	}
+	if drill.Sandbox != nil {
+		for _, svc := range drill.Sandbox.Services {
+			if svc.Healthcheck != nil && svc.Healthcheck.HTTP != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func drillNeedsContainerChecks(drill config.Drill) bool {
@@ -536,5 +627,5 @@ func walkStats(root string) (bytes, files int64, err error) {
 }
 
 func marshalJSON(v any) ([]byte, error) {
-	return jsonMarshal(v)
+	return json.Marshal(v)
 }

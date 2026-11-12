@@ -1,0 +1,62 @@
+# Service drill template (M3).
+#
+# Restores a restic snapshot, starts the restored data as a service on an
+# isolated (no-egress) network, waits for it to become healthy, then probes it.
+#
+# Requirements:
+#   - Docker or a Docker-compatible Podman socket reachable by the runner.
+#   - The probe image (restoredrill's own image). Until a published image is
+#     available, build one locally and point RESTOREDRILL_PROBE_IMAGE at it:
+#       go build -o restoredrill ./cmd/restoredrill
+#       printf 'FROM busybox\nCOPY restoredrill /usr/local/bin/restoredrill\n' > Dockerfile.probe
+#       docker build -f Dockerfile.probe -t restoredrill-probe:local .
+#       export RESTOREDRILL_PROBE_IMAGE=restoredrill-probe:local
+#
+# Replace the repository, paths and image with your own. This file is a
+# template; `restoredrill validate` will flag the placeholder repository.
+
+version: 1
+state_dir: /var/lib/restoredrill
+work_dir: /var/tmp/restoredrill
+
+defaults:
+  timeout: 30m
+  resources: { cpus: 2, memory: 2GiB }
+
+repositories:
+  location1-restic:
+    type: restic
+    repository: /srv/restic/location1          # or sftp:backup@location1:/srv/restic/location1
+    password_file: /etc/restoredrill/secrets/location1-restic.pass
+
+drills:
+  service1:
+    repository: location1-restic
+    snapshot: { select: latest, tags: [service1], max_age: 26h }
+    restore:
+      paths: [/srv/service1/data]
+    sandbox:
+      network: isolated                       # internal network, no egress (default)
+      services:
+        app:
+          image: service1/server:latest    # placeholder image — replace and pin in real use
+          mounts:
+            - source: ${restore}/srv/service1/data
+              target: /data
+          env:
+            APP_MODE: 'restore-test'
+          healthcheck:
+            http: { port: 80, path: /alive, expect: { status: 200 } }
+            timeout: 2m
+    checks:
+      - type: sqlite_integrity
+        path: srv/service1/data/db.sqlite3
+      - type: sqlite_query
+        path: srv/service1/data/db.sqlite3
+        query: SELECT count(*) FROM users
+        expect: { min: 1 }
+      - type: http
+        service: app
+        port: 80
+        path: /api/config
+        expect: { status: 200, json: { path: $.version, exists: true } }

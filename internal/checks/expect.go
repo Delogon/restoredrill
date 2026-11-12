@@ -77,6 +77,21 @@ func matchJSON(je *config.JSONExpect, body string) (bool, string) {
 	return true, ""
 }
 
+// matchHTTPResponse applies status, text and JSON expectations to an HTTP
+// response. Returns (ok, message).
+func matchHTTPResponse(e config.Expect, status int, body string) (bool, string) {
+	if e.HasKey("status") && status != e.Status {
+		return false, sprintf("returned %d, want %d", status, e.Status)
+	}
+	if ok, msg := matchText(e, body); !ok {
+		return false, msg
+	}
+	if ok, msg := matchJSON(e.JSON, body); !ok {
+		return false, msg
+	}
+	return true, ""
+}
+
 // jsonPath walks a decoded JSON document with a $.a.b[0] style path.
 func jsonPath(doc any, path string) (any, bool) {
 	path = strings.TrimPrefix(path, "$")

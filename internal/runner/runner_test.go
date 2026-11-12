@@ -15,10 +15,7 @@ import (
 	"github.com/restoredrill/restoredrill/internal/config"
 	"github.com/restoredrill/restoredrill/internal/redact"
 	"github.com/restoredrill/restoredrill/internal/store"
-	"gopkg.in/yaml.v3"
 )
-
-const pw = "runner-test-pass"
 
 // setupRepo creates a fixture tree and a restic repository backing it up.
 // It returns the source root and repository path.
@@ -87,15 +84,6 @@ func newRunner(t *testing.T, cfg *config.Config) (*Runner, *store.Store) {
 	t.Cleanup(func() { st.Close() })
 	r := New(cfg, st, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})), 1)
 	return r, st
-}
-
-func parseChecks(t *testing.T, snippet string) []config.Check {
-	t.Helper()
-	var out []config.Check
-	if err := yaml.Unmarshal([]byte(snippet), &out); err != nil {
-		t.Fatalf("parse checks: %v", err)
-	}
-	return out
 }
 
 func TestRunPass(t *testing.T) {
