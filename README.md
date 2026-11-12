@@ -141,6 +141,101 @@ How it stays safe and deterministic:
 See [examples/service-drill.yaml](examples/service-drill.yaml) for a runnable
 template.
 
+## Dashboard, API & scheduler (`serve`)
+
+`restoredrill serve` runs everything in one process: the cron scheduler, the web
+dashboard, a JSON API, Prometheus metrics and notifications.
+
+```sh
+restoredrill serve                 # binds 127.0.0.1:8484 by default
+restoredrill serve --concurrency 2 # allow two drills to run at once
+```
+
+Open `http://127.0.0.1:8484`. The dashboard is server-rendered and embedded in
+the binary — reading it works without JavaScript. The overview lists every drill
+with its status, last run, last success, snapshot age, duration and the last 30
+runs as squares; drill and run pages show trends, check results and the full
+log. A running drill streams its log live (server-sent events), and **Run now**
+triggers a manual run.
+
+### Authentication
+
+Binding to anything other than loopback **requires** an auth mode; `serve`
+refuses to start otherwise (fail closed). Configure under `server.auth`:
+
+- `mode: none` — only allowed on `127.0.0.1` / `localhost` / `::1`.
+- `mode: basic` — HTTP Basic against bcrypt `password_hash` values under
+  `server.auth.users`.
+- `mode: trusted_header` — trust an identity header (default
+  `X-Forwarded-User`) **only** from `trusted_proxies` CIDRs; anything else is
+  rejected. Put it behind your reverse proxy.
+
+```yaml
+server:
+  listen: 127.0.0.1:8484
+  timezone: UTC
+  auth:
+    mode: basic
+    users:
+      admin: { password_hash: "$2a$10$..." }   # bcrypt hash
+    api_token_file: /run/secrets/restoredrill-api-token
+```
+
+`/healthz` and `/readyz` are always open. `/metrics` requires auth whenever an
+auth mode is configured.
+
+### JSON API
+
+All endpoints live under `/api/v1` and return a versioned envelope
+(`{"schema":1,"data":...}`); errors use `{"schema":1,"error":"..."}`. Secrets are
+redacted from every response.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/v1/drills` | All drills with last status / next run |
+| GET | `/api/v1/drills/{name}` | Resolved drill config (redacted) |
+| GET | `/api/v1/drills/{name}/runs` | Paginated run history |
+| POST | `/api/v1/drills/{name}/run` | Trigger a run (async, returns `202`) |
+| GET | `/api/v1/runs/{id}` | One run with its check results |
+| GET | `/api/v1/runs/{id}/logs` | Redacted run log |
+
+Authenticate API calls with `Authorization: Bearer <token>` (the token is read
+from `server.auth.api_token_file`). The token is accepted on `/api/v1/*` only.
+Browser "Run now" uses a session-bound CSRF token instead; manual triggers are
+rate-limited (per drill and per client) and return `429` with `Retry-After` when
+you go too fast. A triggered run executes asynchronously — poll the run history
+for the result.
+
+### Scheduler
+
+Each drill may set a 5-field cron `schedule` (evaluated in `server.timezone`),
+an optional `jitter`, and `catch_up` (default true: after downtime, run once at
+startup if the last run is older than one interval). Manual and scheduled runs
+share the same concurrency queue.
+
+```yaml
+drills:
+  nightly:
+    repository: location1-restic
+    schedule: "30 4 * * *"   # 04:30 in server.timezone
+    jitter: 10m
+    catch_up: true
+```
+
+### Metrics & notifications
+
+`/metrics` exposes Prometheus gauges per drill: last run / last success
+timestamps, current status, run duration, snapshot age, restored bytes, and a
+per-check status series. Metrics are seeded from history on startup, so a scrape
+is correct immediately after a restart.
+
+Drills can notify on failure and recovery via `notify:` (ntfy, Matrix or a
+generic webhook with optional HMAC-SHA256 signature). Ongoing failures are
+de-duplicated (`renotify_after`, default 24h); a recovery always notifies. See
+the [config reference](docs/config-reference.md) for notifier fields.
+
+> **Do not schedule drills alongside backup `prune`/`compact` jobs.**
+
 ## Commands
 
 ```
@@ -152,7 +247,7 @@ restoredrill run [<drill>... | --all]  Run now (--snapshot, --keep, --no-notify,
 restoredrill status                    Last result per drill
 restoredrill history <drill> [--limit] Past runs of one drill
 restoredrill show <run-id> [--logs]    Details and logs of one run
-restoredrill serve                     Scheduler + dashboard + API + metrics
+restoredrill serve [--concurrency N]   Scheduler + dashboard + API + metrics
 restoredrill gc                        Remove leftover sandboxes/containers
 restoredrill recipe list | show <name> Bundled and local recipes
 restoredrill version                   Version + detected restic/Borg versions

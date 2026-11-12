@@ -27,6 +27,21 @@ Notes:
 
 A docker-compose demo arrives with milestone 5.
 
+## Serve (dashboard + scheduler)
+
+`serve.yaml` configures `restoredrill serve`: a scheduled file-only drill, the
+dashboard with basic auth, and an ntfy notifier. It needs only restic/Borg (no
+Docker socket). Point the repository and password file at your own, replace the
+placeholder bcrypt hash, then:
+
+```sh
+restoredrill serve --config examples/serve.yaml
+# open http://127.0.0.1:8484  (admin / change-me until you change the hash)
+```
+
+See the README's "Dashboard, API & scheduler" section for auth modes, the JSON
+API, metrics and notifications.
+
 ## Service drill (containers)
 
 `service-drill.yaml` is a template for a full service drill: it restores a

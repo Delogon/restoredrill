@@ -66,6 +66,11 @@ rationale for each. The guiding rule: when in doubt, choose the safer option
   (`restic: version, snapshots, ls, stats, restore`; `borg: --version, list,
   info, extract`). A recording-fake-binary test asserts this for every adapter
   code path.
+- **Stdout is drained before `cmd.Wait()`.** `StdoutPipe` is closed by `Wait`,
+  so waiting before the reader finishes can close the pipe before the buffered
+  output is read, losing it under load (seen as empty/truncated JSON). The
+  scanner goroutine is joined first; on cancellation the process-group kill
+  still closes stdout, so this cannot hang.
 
 ## Run lifecycle and status
 
@@ -124,3 +129,43 @@ rationale for each. The guiding rule: when in doubt, choose the safer option
   "Run now" action). Reading works without JavaScript. This keeps the supply
   chain minimal and the build fully offline (no CDN/npm fetch). The functional
   requirements of plan §10 are unchanged.
+- **Concurrency is a `serve --concurrency` flag (default 1), not a config
+  field.** The config format is frozen after M1 (working rule #3), and the plan
+  only fixes the default (1 run at a time); a flag exposes it without a schema
+  change. Manual and scheduled runs share the runner's queue and per-drill lock.
+- **API token scope.** The Bearer token from `server.auth.api_token_file` is
+  accepted on `/api/v1/*` only — never on HTML pages — and is exempt from CSRF
+  (it is not cookie-based, so it cannot be forged cross-site). It is compared in
+  constant time.
+- **`trusted_header` defaults to `X-Forwarded-User`** when `server.auth.header`
+  is unset, and the header is trusted only from `trusted_proxies` CIDRs.
+  Requests from any other source are rejected (403), so a spoofed header cannot
+  authenticate.
+- **`/metrics` requires auth whenever an auth mode is configured**; `/healthz`,
+  `/readyz` and `/assets/` are always open (they carry no secrets).
+- **Run triggers are asynchronous.** `runner.Run` blocks for the whole drill, so
+  the API returns `202 {"status":"queued"}` immediately and the client polls the
+  run history; the dashboard form redirects (303) back to the drill page. Manual
+  triggers are rate-limited (5 s per drill, 1 s per client IP) and return `429`
+  with `Retry-After`.
+- **CSRF** uses an `rd_session` cookie (HttpOnly, SameSite=Lax); the token is
+  `HMAC-SHA256(server secret, session id)`, sent as a `csrf_token` form field or
+  `X-CSRF-Token` header. A strict CSP (`default-src 'none'`, no inline
+  scripts/styles) is set on every response.
+- **Bind safety is enforced twice.** `config.Validate` rejects a non-loopback
+  `server.listen` with `auth.mode: none`, and `web.CheckBind` re-checks at
+  startup before listening. An empty host (`":8484"`) binds every interface and
+  is therefore **not** loopback (a bug where it was treated as loopback is
+  fixed).
+- **Redaction is defense-in-depth.** Stored events/checks are redacted at
+  persistence, and the web layer additionally redacts every rendered page,
+  partial, log download, JSON response and SSE payload before it leaves the
+  process.
+- **Overview speed.** The overview uses batched window-function queries
+  (`LastRunsAll`, `LastPassingRunsAll`, `RecentRunsAll`, `RunningRuns`) — a
+  constant number of queries regardless of drill count. A test asserts the
+  overview renders 50 drills × 200 runs in under 1 s (measured ~55 ms).
+- **Scheduler catch-up** computes the interval as two successive cron `Next`
+  times; if the last run is older than that (or there is no history) it runs once
+  at startup. Tests use daily schedules so a minute boundary cannot fire during
+  the test window.

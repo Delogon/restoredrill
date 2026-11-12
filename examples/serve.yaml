@@ -1,0 +1,82 @@
+# Serve template (M4): scheduler + dashboard + API + metrics + notifications.
+#
+# Run with:
+#   restoredrill serve --config examples/serve.yaml
+# then open http://127.0.0.1:8484.
+#
+# This is a file-only drill (no containers), so it needs only restic or Borg —
+# no Docker socket. Replace the repository, paths and notifier with your own.
+# `restoredrill validate` will flag the placeholder repository until you point
+# it at a real one.
+
+version: 1
+state_dir: /var/lib/restoredrill
+work_dir: /var/tmp/restoredrill
+
+defaults:
+  timeout: 30m
+
+# --- Dashboard / API / scheduler process -----------------------------------
+server:
+  # Loopback by default. Binding to any other address REQUIRES an auth mode
+  # (serve refuses to start otherwise).
+  listen: 127.0.0.1:8484
+  # Cron schedules are evaluated in this timezone.
+  timezone: UTC
+  auth:
+    # none | basic | trusted_header. Use basic or trusted_header to expose the
+    # dashboard beyond loopback.
+    mode: basic
+    users:
+      admin:
+        # bcrypt hash of the placeholder password "change-me" — replace it.
+        # Generate your own with e.g. `htpasswd -bnBC 10 "" 'yourpass'`.
+        password_hash: "$2a$10$gLB5jiY5zBiKO1gQ2bYB/e2nZPfYZ9x/1Gw61nolRRFNZ2dEHB0HO"
+    # Optional Bearer token for the JSON API (/api/v1/* only). The file must
+    # contain the token; it is read at startup and redacted from all output.
+    # api_token_file: /etc/restoredrill/secrets/api-token
+
+repositories:
+  location1-restic:
+    type: restic
+    repository: /srv/restic/location1
+    password_file: /etc/restoredrill/secrets/location1-restic.pass
+
+drills:
+  nightly-files:
+    repository: location1-restic
+    # 5-field cron, in server.timezone. Optional jitter spreads the load.
+    schedule: "30 4 * * *"
+    jitter: 10m
+    # After downtime, run once at startup if the last run is older than one
+    # interval (default true).
+    catch_up: true
+    snapshot: { select: latest, tags: [files], max_age: 26h }
+    restore:
+      paths: [/srv/app/data]
+    checks:
+      - type: files_exist
+        paths: ["srv/app/data/**"]
+        min_count: 1
+      - type: snapshot_age
+        max_age: 26h
+    # Notify on failure and recovery (see notifiers below).
+    notify: [ops-ntfy]
+
+# --- Notifications ----------------------------------------------------------
+notifiers:
+  ops-ntfy:
+    type: ntfy
+    url: https://ntfy.example.com/restoredrill
+    # Events: pass, fail, error, recovered. Ongoing failures are de-duplicated
+    # by renotify_after (default 24h); a recovery always notifies.
+    on: [fail, error, recovered]
+    renotify_after: 24h
+    # token_file: /etc/restoredrill/secrets/ntfy-token   # if the topic is protected
+
+  # A generic webhook with an HMAC-SHA256 signature header instead:
+  # ops-hook:
+  #   type: webhook
+  #   url: https://hooks.example.com/restoredrill
+  #   on: [fail, error, recovered]
+  #   secret_file: /etc/restoredrill/secrets/webhook-key
