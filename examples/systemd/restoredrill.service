@@ -1,0 +1,28 @@
+[Unit]
+Description=Restoredrill restore verification (all drills)
+Documentation=https://github.com/restoredrill/restoredrill
+# Do not run alongside backup prune/compact jobs.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Run as a dedicated user that can read the repositories and the Docker socket
+# (only if service drills are used). Access to the Docker socket is root-equivalent.
+User=restoredrill
+Group=restoredrill
+ExecStart=/usr/local/bin/restoredrill run --all --config /etc/restoredrill/restoredrill.yaml
+# Exit codes 1 (fail) and 3 (error) are meaningful; do not treat them as service
+# failures that trigger restarts.
+SuccessExitStatus=0 1 3
+Nice=10
+IOSchedulingClass=idle
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/restoredrill /var/tmp/restoredrill
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

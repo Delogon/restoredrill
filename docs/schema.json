@@ -1,0 +1,731 @@
+{
+  "$defs": {
+    "Auth": {
+      "additionalProperties": false,
+      "properties": {
+        "api_token_file": {
+          "type": "string"
+        },
+        "header": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "trusted_proxies": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "users": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AuthUser"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "mode",
+        "users",
+        "trusted_proxies",
+        "header",
+        "api_token_file"
+      ],
+      "type": "object"
+    },
+    "AuthUser": {
+      "additionalProperties": false,
+      "properties": {
+        "password_hash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "password_hash"
+      ],
+      "type": "object"
+    },
+    "Binaries": {
+      "additionalProperties": false,
+      "properties": {
+        "borg": {
+          "type": "string"
+        },
+        "restic": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "restic",
+        "borg"
+      ],
+      "type": "object"
+    },
+    "Check": {
+      "additionalProperties": false,
+      "properties": {
+        "dump": {
+          "type": "string"
+        },
+        "expect": {
+          "$ref": "#/$defs/Expect"
+        },
+        "format": {
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "image": {
+          "type": "string"
+        },
+        "max_age": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "max_drop_percent": {
+          "type": "number"
+        },
+        "method": {
+          "type": "string"
+        },
+        "min_bytes": {
+          "type": "integer"
+        },
+        "min_count": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "queries": {
+          "items": {
+            "$ref": "#/$defs/SQLQuery"
+          },
+          "type": "array"
+        },
+        "query": {
+          "type": "string"
+        },
+        "run": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sample": {
+          "type": "integer"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "service": {
+          "type": "string"
+        },
+        "source_root": {
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "checksum_sample",
+            "command",
+            "files_exist",
+            "http",
+            "postgres_restore",
+            "service_healthy",
+            "size_trend",
+            "snapshot_age",
+            "sqlite_integrity",
+            "sqlite_query"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Defaults": {
+      "additionalProperties": false,
+      "properties": {
+        "keep_on_failure": {
+          "type": "boolean"
+        },
+        "keep_ttl": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "notify": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources"
+        },
+        "timeout": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timeout",
+        "keep_on_failure",
+        "keep_ttl",
+        "notify",
+        "resources"
+      ],
+      "type": "object"
+    },
+    "Drill": {
+      "additionalProperties": false,
+      "properties": {
+        "catch_up": {
+          "type": "boolean"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/Check"
+          },
+          "type": "array"
+        },
+        "jitter": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "keep_on_failure": {
+          "type": "boolean"
+        },
+        "keep_ttl": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "notify": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources"
+        },
+        "restore": {
+          "$ref": "#/$defs/Restore"
+        },
+        "sandbox": {
+          "$ref": "#/$defs/Sandbox"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/Snapshot"
+        },
+        "timeout": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "uses": {
+          "type": "string"
+        },
+        "with": {
+          "additionalProperties": {},
+          "type": "object"
+        }
+      },
+      "required": [
+        "repository",
+        "snapshot",
+        "restore",
+        "checks"
+      ],
+      "type": "object"
+    },
+    "Expect": {
+      "additionalProperties": false,
+      "properties": {
+        "contains": {
+          "type": "string"
+        },
+        "equals": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "json": {
+          "$ref": "#/$defs/JSONExpect"
+        },
+        "max": {
+          "type": "number"
+        },
+        "min": {
+          "type": "number"
+        },
+        "regex": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "HTTPProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "expect": {
+          "$ref": "#/$defs/Expect"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "method": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "port",
+        "path"
+      ],
+      "type": "object"
+    },
+    "Healthcheck": {
+      "additionalProperties": false,
+      "properties": {
+        "http": {
+          "$ref": "#/$defs/HTTPProbe"
+        },
+        "timeout": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "JSONExpect": {
+      "additionalProperties": false,
+      "properties": {
+        "equals": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "Mount": {
+      "additionalProperties": false,
+      "properties": {
+        "read_only": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "Notifier": {
+      "additionalProperties": false,
+      "properties": {
+        "homeserver": {
+          "type": "string"
+        },
+        "on": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "renotify_after": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "room_id": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string"
+        },
+        "secret_file": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "token_file": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "on",
+        "url",
+        "homeserver",
+        "room_id",
+        "token_file",
+        "token",
+        "secret_file",
+        "secret",
+        "renotify_after"
+      ],
+      "type": "object"
+    },
+    "Repository": {
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "no_lock": {
+          "type": "boolean"
+        },
+        "passcommand": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "password_command": {
+          "type": "string"
+        },
+        "password_file": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "repository",
+        "no_lock",
+        "env",
+        "password_file",
+        "password_command",
+        "password",
+        "passcommand",
+        "passphrase"
+      ],
+      "type": "object"
+    },
+    "Resources": {
+      "additionalProperties": false,
+      "properties": {
+        "cpus": {
+          "type": "number"
+        },
+        "memory": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cpus",
+        "memory"
+      ],
+      "type": "object"
+    },
+    "Restore": {
+      "additionalProperties": false,
+      "properties": {
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "type": "object"
+    },
+    "Retention": {
+      "additionalProperties": false,
+      "properties": {
+        "runs_per_drill": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "runs_per_drill"
+      ],
+      "type": "object"
+    },
+    "SQLQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "expect": {
+          "$ref": "#/$defs/Expect"
+        },
+        "sql": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sql"
+      ],
+      "type": "object"
+    },
+    "Sandbox": {
+      "additionalProperties": false,
+      "properties": {
+        "network": {
+          "type": "string"
+        },
+        "services": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Service"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "Server": {
+      "additionalProperties": false,
+      "properties": {
+        "auth": {
+          "$ref": "#/$defs/Auth"
+        },
+        "listen": {
+          "type": "string"
+        },
+        "public_url": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "listen",
+        "public_url",
+        "auth",
+        "timezone"
+      ],
+      "type": "object"
+    },
+    "Service": {
+      "additionalProperties": false,
+      "properties": {
+        "cap_add": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "healthcheck": {
+          "$ref": "#/$defs/Healthcheck"
+        },
+        "image": {
+          "type": "string"
+        },
+        "mounts": {
+          "items": {
+            "$ref": "#/$defs/Mount"
+          },
+          "type": "array"
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources"
+        },
+        "user": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "image"
+      ],
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "archive_glob": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "max_age": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "select": {
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "within": {
+          "description": "Duration, e.g. 30m, 24h, 30d",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h|d|w)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "select"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://restoredrill.dev/schema/v1.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "allow_inline_secrets": {
+      "type": "boolean"
+    },
+    "binaries": {
+      "$ref": "#/$defs/Binaries"
+    },
+    "defaults": {
+      "$ref": "#/$defs/Defaults"
+    },
+    "drills": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Drill"
+      },
+      "type": "object"
+    },
+    "include": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "notifiers": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Notifier"
+      },
+      "type": "object"
+    },
+    "repositories": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Repository"
+      },
+      "type": "object"
+    },
+    "retention": {
+      "$ref": "#/$defs/Retention"
+    },
+    "server": {
+      "$ref": "#/$defs/Server"
+    },
+    "state_dir": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer"
+    },
+    "work_dir": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "state_dir",
+    "work_dir",
+    "binaries",
+    "retention",
+    "defaults",
+    "repositories",
+    "notifiers",
+    "server",
+    "include",
+    "drills",
+    "allow_inline_secrets"
+  ],
+  "title": "restoredrill configuration",
+  "type": "object"
+}

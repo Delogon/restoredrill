@@ -1,0 +1,11 @@
+[Unit]
+Description=Run restoredrill drills nightly
+
+[Timer]
+# Nightly at 03:30, with a small randomized delay to avoid thundering herd.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
