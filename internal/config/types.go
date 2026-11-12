@@ -276,7 +276,12 @@ type JSONExpect struct {
 	Path   string `yaml:"path" json:"path"`
 	Exists *bool  `yaml:"exists,omitempty" json:"exists,omitempty"`
 	Equals string `yaml:"equals,omitempty" json:"equals,omitempty"`
+
+	keys map[string]bool `yaml:"-" json:"-"`
 }
+
+// HasKey reports whether the JSON expectation explicitly set key.
+func (j *JSONExpect) HasKey(key string) bool { return j.keys[key] }
 
 // HasKey reports whether the check's YAML explicitly set key.
 func (c *Check) HasKey(key string) bool { return c.keys[key] }

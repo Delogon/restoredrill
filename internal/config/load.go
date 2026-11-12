@@ -168,7 +168,9 @@ func (c *Config) applyDefaults() {
 		c.StateDir = filepath.Join(home, ".local", "state", "restoredrill")
 	}
 	if c.WorkDir == "" {
-		c.WorkDir = filepath.Join(os.TempDir(), "restoredrill")
+		// /var/tmp is the conventional location for large temporary data and
+		// is usually on disk rather than a small tmpfs.
+		c.WorkDir = "/var/tmp/restoredrill"
 	}
 	if c.Retention.RunsPerDrill == 0 {
 		c.Retention.RunsPerDrill = 200

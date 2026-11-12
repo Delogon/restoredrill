@@ -49,6 +49,27 @@ func (e Expect) MarshalYAML() (any, error) {
 	return plain(e), nil
 }
 
+// UnmarshalYAML decodes a JSON expectation and records which keys were set.
+func (j *JSONExpect) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("json expectation must be a mapping")
+	}
+	type plain JSONExpect
+	var p plain
+	if err := node.Decode(&p); err != nil {
+		return err
+	}
+	*j = JSONExpect(p)
+	j.keys = mappingKeys(node)
+	return nil
+}
+
+// MarshalYAML omits the internal key set.
+func (j JSONExpect) MarshalYAML() (any, error) {
+	type plain JSONExpect
+	return plain(j), nil
+}
+
 func mappingKeys(node *yaml.Node) map[string]bool {
 	keys := make(map[string]bool)
 	if node.Kind != yaml.MappingNode {
