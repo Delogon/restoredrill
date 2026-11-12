@@ -49,14 +49,19 @@ type ContainerRuntime interface {
 	// RunOnce starts a throwaway container from image, runs cmd, and returns
 	// its exit code and output. The container is removed afterwards.
 	RunOnce(ctx context.Context, image string, cmd []string, env map[string]string, mounts []Mount) (exit int, stdout, stderr string, err error)
-	// Exec runs cmd inside an already-running service container.
-	Exec(ctx context.Context, service string, cmd []string) (exit int, stdout, stderr string, err error)
+	// StartContainer starts a named container (pulling the image if needed)
+	// and leaves it running. Used by postgres_restore for a temporary server.
+	StartContainer(ctx context.Context, name, image string, env map[string]string, mounts []Mount) error
+	// StopContainer stops and removes a named container.
+	StopContainer(ctx context.Context, name string) error
+	// Exec runs cmd inside a running container (a service or ephemeral one).
+	Exec(ctx context.Context, container string, cmd []string) (exit int, stdout, stderr string, err error)
 	// HTTPProbe issues an HTTP request from the probe container to a service.
 	HTTPProbe(ctx context.Context, service string, port int, method, path string, headers map[string]string) (status int, body string, err error)
 	// WaitHealthy waits until a service is healthy or the timeout elapses.
 	WaitHealthy(ctx context.Context, service string, timeout time.Duration) error
-	// CopyToContainer copies a local file into a service container.
-	CopyToContainer(ctx context.Context, service, localPath, containerPath string) error
+	// CopyToContainer copies a local file into a container.
+	CopyToContainer(ctx context.Context, container, localPath, containerPath string) error
 }
 
 // Context carries everything a check may need.

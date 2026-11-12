@@ -206,17 +206,22 @@ func TestRunUnreachableRepoErrors(t *testing.T) {
 
 func TestRunCorruptRepoNeverPass(t *testing.T) {
 	src, repo := setupRepo(t)
-	// Corrupt a pack file to break the repository. restic marks packs 0400,
-	// so make it writable first; otherwise the corruption silently no-ops.
+	// Corrupt every pack file to break the repository. restic marks packs
+	// 0400, so make them writable first. Corrupting only one pack is flaky:
+	// it may be a tree pack whose blobs are already cached, leaving file data
+	// intact. restic never caches file data, so corrupting all packs guarantees
+	// the restore cannot succeed.
 	packs, _ := filepath.Glob(filepath.Join(repo, "data", "*", "*"))
 	if len(packs) == 0 {
 		t.Skip("no pack files found")
 	}
-	if err := os.Chmod(packs[0], 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(packs[0], []byte("corrupted"), 0o644); err != nil {
-		t.Fatal(err)
+	for _, p := range packs {
+		if err := os.Chmod(p, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("corrupted"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	base := t.TempDir()
 	cfg := testConfig(t, repo, src, filepath.Join(base, "work"), filepath.Join(base, "state"), `

@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added — Milestone 2 (Borg, SQLite and Postgres checks)
+
+- Borg 1.2/1.4 adapter (refuses 2.x) sharing the same interface, restore layout
+  and read-only allowlist as restic. The shared backend test suite passes with
+  identical results for restic and Borg.
+- `sqlite_integrity` (PRAGMA integrity_check) and `sqlite_query` (scalar query
+  with min/max/equals expectations), both opening the restored database
+  strictly read-only.
+- `postgres_restore`: loads a custom/plain/directory dump into a temporary
+  isolated Postgres container and checks expectation queries. Requires the
+  container runtime (M3); errors cleanly when it is unavailable.
+- Failure-injection tests: truncated SQLite file fails; Borg + SQLite drill
+  passes end-to-end and a too-high query expectation fails.
+
 ### Added — Milestone 1 (config, restic, file checks, CLI, store)
 
 - Declarative YAML config with includes, recipe expansion, variable
@@ -30,5 +44,6 @@ All notable changes to this project are documented here. The format is based on
 
 ### Notes
 
-- Borg adapter, SQLite/Postgres checks, containers, serve/dashboard, recipes and
-  release tooling land in milestones 2–5.
+- Container runtime, service checks, serve/dashboard, recipes and release
+  tooling land in milestones 3–5. `postgres_restore` and service drills need a
+  Docker/Podman socket and are exercised by the M3 container tests.
