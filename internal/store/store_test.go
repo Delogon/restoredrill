@@ -118,3 +118,61 @@ func TestActiveRuns(t *testing.T) {
 		t.Fatalf("active: %+v %v", active, err)
 	}
 }
+
+func TestOverviewBatchQueries(t *testing.T) {
+	s := openTest(t)
+	base := time.Now().UTC()
+	// Drill a: pass, fail, pass (newest). Drill b: only fail. Drill c: skipped only.
+	mk := func(id, drill, status string, ageSec int) {
+		t.Helper()
+		r := Run{ID: id, Drill: drill, Trigger: TriggerCLI, Status: status,
+			StartedAt: base.Add(-time.Duration(ageSec) * time.Second), FinishedAt: base.Add(-time.Duration(ageSec) * time.Second)}
+		if err := s.InsertRun(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("A1", "a", StatusPass, 30)
+	mk("A2", "a", StatusFail, 20)
+	mk("A3", "a", StatusPass, 10)
+	mk("B1", "b", StatusFail, 15)
+	mk("C1", "c", StatusSkipped, 5)
+	mk("A0", "a", StatusRunning, 1) // running counts as a run but not "last completed"
+
+	last, err := s.LastRunsAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last["a"].ID != "A0" || last["b"].ID != "B1" {
+		t.Fatalf("LastRunsAll: %+v", last)
+	}
+	if _, ok := last["c"]; ok {
+		t.Fatalf("skipped-only drill must not appear: %+v", last)
+	}
+
+	pass, err := s.LastPassingRunsAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pass["a"].ID != "A3" {
+		t.Fatalf("LastPassingRunsAll a: %+v", pass)
+	}
+	if _, ok := pass["b"]; ok {
+		t.Fatalf("never-passing drill must not appear: %+v", pass)
+	}
+
+	recent, err := s.RecentRunsAll(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recent["a"]) != 2 || recent["a"][0].ID != "A0" || recent["a"][1].ID != "A3" {
+		t.Fatalf("RecentRunsAll a (newest first, limit 2): %+v", recent["a"])
+	}
+	if len(recent["b"]) != 1 {
+		t.Fatalf("RecentRunsAll b: %+v", recent["b"])
+	}
+
+	running, err := s.RunningRuns()
+	if err != nil || len(running) != 1 || running[0].ID != "A0" {
+		t.Fatalf("RunningRuns: %+v %v", running, err)
+	}
+}

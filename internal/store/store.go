@@ -264,6 +264,101 @@ func (s *Store) LastRun(drill string) (Run, error) {
 	return r, err
 }
 
+// LastRunOther returns the most recent non-skipped run for a drill other than
+// excludeID. It is used to detect recovery (first pass after a non-pass).
+func (s *Store) LastRunOther(drill, excludeID string) (Run, error) {
+	r, err := scanRun(s.db.QueryRow(`SELECT `+runCols+` FROM runs WHERE drill=? AND id!=? AND status!=? ORDER BY started_at DESC, id DESC LIMIT 1`, drill, excludeID, StatusSkipped))
+	if err == sql.ErrNoRows {
+		return Run{}, nil
+	}
+	return r, err
+}
+
+// rankedRuns selects runs with a per-drill rank (1 = newest), excluding
+// skipped runs. It is the basis of the batched overview queries: one query
+// serves all drills, keeping the overview fast with many drills and runs.
+const rankedRuns = `SELECT ` + runCols + ` FROM (
+	SELECT ` + runCols + `, ROW_NUMBER() OVER (PARTITION BY drill ORDER BY started_at DESC, id DESC) AS rn
+	FROM runs WHERE status != '` + StatusSkipped + `')`
+
+// LastRunsAll returns the newest non-skipped run per drill.
+func (s *Store) LastRunsAll() (map[string]Run, error) {
+	rows, err := s.db.Query(rankedRuns + ` WHERE rn=1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]Run{}
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[r.Drill] = r
+	}
+	return out, rows.Err()
+}
+
+// LastPassingRunsAll returns the newest passing run per drill.
+func (s *Store) LastPassingRunsAll() (map[string]Run, error) {
+	rows, err := s.db.Query(`SELECT ` + runCols + ` FROM (
+		SELECT ` + runCols + `, ROW_NUMBER() OVER (PARTITION BY drill ORDER BY started_at DESC, id DESC) AS rn
+		FROM runs WHERE status='` + StatusPass + `') WHERE rn=1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]Run{}
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[r.Drill] = r
+	}
+	return out, rows.Err()
+}
+
+// RecentRunsAll returns up to n newest non-skipped runs per drill (newest
+// first), for the overview's run squares and trends.
+func (s *Store) RecentRunsAll(n int) (map[string][]Run, error) {
+	if n <= 0 {
+		n = 30
+	}
+	rows, err := s.db.Query(rankedRuns+` WHERE rn<=? ORDER BY drill, rn`, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]Run{}
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[r.Drill] = append(out[r.Drill], r)
+	}
+	return out, rows.Err()
+}
+
+// RunningRuns returns runs currently marked running.
+func (s *Store) RunningRuns() ([]Run, error) {
+	rows, err := s.db.Query(`SELECT ` + runCols + ` FROM runs WHERE status=? ORDER BY started_at`, StatusRunning)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Run
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // LastPassingRun returns the most recent passing run for a drill (size_trend).
 func (s *Store) LastPassingRun(drill string) (Run, error) {
 	r, err := scanRun(s.db.QueryRow(`SELECT `+runCols+` FROM runs WHERE drill=? AND status=? ORDER BY started_at DESC, id DESC LIMIT 1`, drill, StatusPass))
