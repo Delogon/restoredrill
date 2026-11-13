@@ -1,5 +1,12 @@
 # Restoredrill
 
+> **Disclaimer — experimental AI test project**
+>
+> This project was developed to test **Qwen4.0 Max Preview**. It is an
+> AI-generated experiment, not a production product. The code, documentation
+> and examples are provided as-is, without warranty of any kind. Review and
+> test everything before relying on it, and use it at your own risk.
+
 **Prove your backups can actually be restored.**
 
 Restoredrill is an open-source CLI with a small web dashboard that periodically

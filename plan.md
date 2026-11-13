@@ -1,3 +1,5 @@
+Note: this project was developed to test Qwen4.0 Max Preview. All location and service names in this document (location1, location2, service1, service2, service3) are generic placeholders, not real systems.
+
 1. Purpose and goals
 Restoredrill (working title) is an open-source CLI with a small web dashboard that proves backups can actually be restored. It periodically restores restic and Borg snapshots into a throwaway sandbox and checks that the data and the services built on it work.
 Problem. Backup tools verify repository integrity (restic check, borg check). Nobody verifies that a restored service starts, that a Postgres dump loads, or that the backup still contains the files it should. Self-hosters write one-off bash scripts or skip restore tests entirely.

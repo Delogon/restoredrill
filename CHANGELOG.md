@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- README now opens with a disclaimer: this project was developed to test
+  Qwen4.0 Max Preview and is an experiment, not a production product.
+- All example location and service names are generic placeholders
+  (`location1`, `location2`, `service1`–`service3`) across docs, examples,
+  tests and the git history; the three app-specific bundled recipes were
+  renamed to `service1`, `service2` and `service3`.
+
 ### Added — Milestone 5 (recipes, releases, Docker image, demo)
 
 - Recipes: six bundled drill templates (`generic-files`, `sqlite-app`,
