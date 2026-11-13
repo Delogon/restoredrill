@@ -1,0 +1,37 @@
+# Demo configuration: one file-only drill using the bundled generic-files
+# recipe, plus the dashboard. DEMO VALUES ONLY — replace everything (repo
+# password, dashboard password hash) before real use.
+
+version: 1
+state_dir: /state
+work_dir: /work
+
+server:
+  # Inside the container the dashboard must bind all interfaces for the port
+  # mapping to work; compose publishes it on host loopback only. Non-loopback
+  # binds require auth, so basic auth is configured below.
+  listen: 0.0.0.0:8484
+  auth:
+    mode: basic
+    users:
+      admin:
+        # bcrypt hash of "change-me" — demo login, replace for real use.
+        password_hash: "$2a$10$gLB5jiY5zBiKO1gQ2bYB/e2nZPfYZ9x/1Gw61nolRRFNZ2dEHB0HO"
+
+repositories:
+  demo:
+    type: restic
+    repository: /repo
+    password_file: /secrets/repo.pass
+
+drills:
+  demo-files:
+    uses: generic-files
+    with:
+      repository: demo
+      data_path: /data
+      min_count: 10
+      max_age: 26h
+    # Demo frequency so the scheduler visibly fires; use e.g. '30 4 * * *'
+    # for a real nightly drill.
+    schedule: "*/15 * * * *"

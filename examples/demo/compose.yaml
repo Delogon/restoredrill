@@ -1,0 +1,58 @@
+# Restoredrill demo: seed a restic repository, run a drill, serve the dashboard.
+#
+# Smoke test (exit code = drill result):
+#   docker compose up --build --abort-on-container-exit --exit-code-from drill
+#
+# Interactive (dashboard on http://127.0.0.1:8484, admin / change-me):
+#   docker compose up --build -d dashboard
+#
+# Until the first published release, --build builds the image from the repo's
+# Dockerfile (which bundles restic and Borg). Everything stays in named
+# volumes; `docker compose down -v` removes all demo data.
+
+name: restoredrill-demo
+
+x-restoredrill: &restoredrill
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: ghcr.io/restoredrill/restoredrill:latest
+  volumes:
+    - repo:/repo
+    - state:/state
+    - work:/work
+    - ./restoredrill.yaml:/etc/restoredrill/restoredrill.yaml:ro
+    - ./secrets:/secrets:ro
+
+services:
+  # One-shot: create sample data and back it up into the shared restic repo.
+  seed:
+    <<: *restoredrill
+    entrypoint: ["/bin/sh", "/seed/seed.sh"]
+    volumes:
+      - repo:/repo
+      - ./seed.sh:/seed/seed.sh:ro
+      - ./secrets:/secrets:ro
+
+  # One-shot: run every drill once; the exit code is the drill result.
+  drill:
+    <<: *restoredrill
+    command: ["run", "--all", "--config", "/etc/restoredrill/restoredrill.yaml"]
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  # Long-running: scheduler + dashboard + API + metrics.
+  dashboard:
+    <<: *restoredrill
+    command: ["serve", "--config", "/etc/restoredrill/restoredrill.yaml"]
+    ports:
+      - "127.0.0.1:8484:8484"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+volumes:
+  repo:
+  state:
+  work:

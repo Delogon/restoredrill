@@ -1,5 +1,20 @@
 # Examples
 
+## Demo (zero to a passing drill)
+
+`demo/` is a self-contained docker-compose stack: it seeds a throwaway restic
+repository, runs a drill with the bundled `generic-files` recipe and serves the
+dashboard. No existing backup needed.
+
+```sh
+cd examples/demo
+docker compose up --build --abort-on-container-exit --exit-code-from drill  # smoke test
+docker compose up --build -d dashboard   # then open http://127.0.0.1:8484
+```
+
+See [demo/README.md](demo/README.md) for the full walkthrough (login
+admin / change-me, failure injection, cleanup).
+
 ## systemd (run without `serve`)
 
 `systemd/restoredrill.service` and `systemd/restoredrill.timer` run
@@ -24,8 +39,6 @@ Notes:
 - **Do not schedule this timer alongside backup `prune`/`compact` jobs.**
 - Adjust `ReadWritePaths` if your `state_dir`/`work_dir` differ from the
   defaults, and add the restic cache / Borg base dir if you set them.
-
-A docker-compose demo arrives with milestone 5.
 
 ## Serve (dashboard + scheduler)
 
