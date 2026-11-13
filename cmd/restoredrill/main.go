@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	// Register the bundled recipes with the config package.
+	_ "github.com/restoredrill/restoredrill/recipes"
 )
 
 // Build information, overridden at link time.

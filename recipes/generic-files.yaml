@@ -1,0 +1,28 @@
+# Restore a directory and verify the expected files are present, the snapshot
+# is fresh and the restored size has not collapsed. Backend-agnostic starting
+# point for any file backup (restic or Borg).
+recipe: generic-files
+version: 1
+description: Restore a directory and check that files exist, the snapshot is fresh and the size has not dropped.
+params:
+  repository: { required: true }
+  # Absolute path of the directory to restore, as stored in the backup.
+  data_path: { required: true }
+  min_count: { default: 1 }
+  max_age: { default: 26h }
+  max_drop_percent: { default: 25 }
+drill:
+  repository: ${param.repository}
+  snapshot:
+    select: latest
+    max_age: ${param.max_age}
+  restore:
+    paths: ['${param.data_path}']
+  checks:
+    # '**' matches every restored file, whatever the directory layout.
+    - type: files_exist
+      paths: ['**']
+      min_count: ${param.min_count}
+    # Skipped on the first run (no baseline yet).
+    - type: size_trend
+      max_drop_percent: ${param.max_drop_percent}

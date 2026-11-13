@@ -1,0 +1,35 @@
+# Restore a service's configuration directory and verify configuration.yaml
+# plus its SQLite database are intact. Data checks only — starting the service
+# itself is out of scope for this recipe.
+# Assumes the standard database name; override `checks:` at the drill level
+# if you customised it.
+recipe: service3
+version: 1
+description: Restore the config directory, verify configuration.yaml and the SQLite database integrity.
+params:
+  repository: { required: true }
+  # Absolute path of the config directory, as stored in the backup.
+  config_path: { default: /srv/service3/config }
+  # Path of the config directory RELATIVE to the restore root: the backed-up
+  # absolute path without the leading '/'. Keep it in sync with config_path.
+  config_rel: { default: srv/service3/config }
+  max_age: { default: 26h }
+drill:
+  repository: ${param.repository}
+  snapshot:
+    select: latest
+    max_age: ${param.max_age}
+  restore:
+    paths: ['${param.config_path}']
+  checks:
+    - type: files_exist
+      paths: ['**/configuration.yaml']
+      min_count: 1
+    - type: sqlite_integrity
+      path: ${param.config_rel}/service3.db
+    # min 0: proves the database schema exists and is queryable even when
+    # history is empty.
+    - type: sqlite_query
+      path: ${param.config_rel}/service3.db
+      query: SELECT count(*) FROM states
+      expect: { min: 0 }

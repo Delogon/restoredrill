@@ -1,0 +1,40 @@
+# Restore an application's PostgreSQL dump plus the document originals, load
+# the dump into a throwaway Postgres container and verify documents are
+# present. Needs a Docker/Podman socket. This checks the data, not the full
+# web stack.
+recipe: service2
+version: 1
+description: Restore an application database dump and document originals, load the dump and verify documents exist.
+params:
+  repository: { required: true }
+  # Absolute path of the database dump, as stored in the backup.
+  dump_path: { default: /srv/backups/service2/db.dump }
+  # Path of the dump RELATIVE to the restore root: the backed-up absolute path
+  # without the leading '/'. Keep it in sync with dump_path.
+  dump_rel: { default: srv/backups/service2/db.dump }
+  # Absolute path of the document originals directory.
+  documents_path: { default: /srv/service2/media/documents/originals }
+  image: { default: 'postgres:16' }
+  min_documents: { default: 1 }
+  min_files: { default: 1 }
+  max_age: { default: 30h }
+drill:
+  repository: ${param.repository}
+  snapshot:
+    select: latest
+    max_age: ${param.max_age}
+  restore:
+    paths: ['${param.dump_path}', '${param.documents_path}']
+  checks:
+    - type: postgres_restore
+      dump: ${param.dump_rel}
+      format: custom
+      image: ${param.image}
+      queries:
+        - sql: SELECT count(*) FROM documents
+          expect:
+            min: ${param.min_documents}
+    # Layout-independent: matches PDFs anywhere under the restored paths.
+    - type: files_exist
+      paths: ['**/*.pdf']
+      min_count: ${param.min_files}

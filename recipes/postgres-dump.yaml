@@ -1,0 +1,37 @@
+# Restore a PostgreSQL dump file, load it into a throwaway Postgres container
+# on an isolated network and run a query. Needs a Docker/Podman socket.
+# Override `query`/`expect_min` to assert against your schema, e.g.
+#   query: SELECT count(*) FROM accounts
+#   expect_min: 10
+recipe: postgres-dump
+version: 1
+description: Restore a Postgres dump, load it into a temporary Postgres container and run a query.
+params:
+  repository: { required: true }
+  # Absolute path of the dump file, as stored in the backup.
+  dump_path: { default: /srv/backups/postgres/db.dump }
+  # Path of the dump RELATIVE to the restore root: the backed-up absolute path
+  # without the leading '/'. Keep it in sync with dump_path.
+  dump_rel: { default: srv/backups/postgres/db.dump }
+  # custom (pg_dump -Fc), plain (SQL text) or directory (pg_dump -Fd).
+  format: { default: custom }
+  image: { default: 'postgres:16' }
+  query: { default: 'SELECT 1' }
+  expect_min: { default: 1 }
+  max_age: { default: 30h }
+drill:
+  repository: ${param.repository}
+  snapshot:
+    select: latest
+    max_age: ${param.max_age}
+  restore:
+    paths: ['${param.dump_path}']
+  checks:
+    - type: postgres_restore
+      dump: ${param.dump_rel}
+      format: ${param.format}
+      image: ${param.image}
+      queries:
+        - sql: ${param.query}
+          expect:
+            min: ${param.expect_min}

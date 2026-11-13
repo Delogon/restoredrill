@@ -1,0 +1,52 @@
+# Restore a service's data directory, check its SQLite database, start the
+# server on an isolated (no-egress) network and probe the API. Needs a
+# Docker/Podman socket. Replace `image` with the service you actually run,
+# pinned to a tag or digest.
+recipe: service1
+version: 1
+description: Restore the data directory, check SQLite, start the server, probe the API.
+params:
+  repository: { required: true }
+  # Absolute path of the service data directory, as stored in the backup.
+  data_path: { default: /srv/service1/data }
+  # Path of db.sqlite3 RELATIVE to the restore root: the backed-up absolute
+  # path without the leading '/'. Keep it in sync with data_path.
+  db_path: { default: srv/service1/data/db.sqlite3 }
+  # Placeholder image — replace with the service you actually run.
+  image: { default: 'service1/server:1.0.0' }
+  min_users: { default: 1 }
+  max_age: { default: 26h }
+drill:
+  repository: ${param.repository}
+  snapshot:
+    select: latest
+    max_age: ${param.max_age}
+  restore:
+    paths: ['${param.data_path}']
+  sandbox:
+    network: isolated
+    services:
+      app:
+        image: ${param.image}
+        mounts:
+          # data_path is absolute, so no extra '/' between the two variables.
+          - source: ${restore}${param.data_path}
+            target: /data
+        env:
+          APP_MODE: 'restore-test'
+        healthcheck:
+          http: { port: 80, path: /alive, expect: { status: 200 } }
+          timeout: 2m
+  checks:
+    - type: sqlite_integrity
+      path: ${param.db_path}
+    - type: sqlite_query
+      path: ${param.db_path}
+      query: SELECT count(*) FROM users
+      expect:
+        min: ${param.min_users}
+    - type: http
+      service: app
+      port: 80
+      path: /api/config
+      expect: { status: 200, json: { path: $.version, exists: true } }

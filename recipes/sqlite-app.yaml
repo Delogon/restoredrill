@@ -1,0 +1,32 @@
+# Restore an application's data directory and verify its SQLite database:
+# integrity check plus one query. Works for any app that keeps its state in a
+# single SQLite file (override `query` to assert against your schema).
+recipe: sqlite-app
+version: 1
+description: Restore a data directory, run SQLite integrity and a query against the app database.
+params:
+  repository: { required: true }
+  # Absolute path of the data directory, as stored in the backup.
+  data_path: { default: /srv/app/data }
+  # Path of the database RELATIVE to the restore root: the backed-up absolute
+  # path without the leading '/'. Keep it in sync with data_path.
+  db_path: { default: srv/app/data/app.sqlite3 }
+  query: { default: 'SELECT 1' }
+  expect_min: { default: 1 }
+  max_age: { default: 26h }
+drill:
+  repository: ${param.repository}
+  snapshot:
+    select: latest
+    max_age: ${param.max_age}
+  restore:
+    paths: ['${param.data_path}']
+  checks:
+    - type: sqlite_integrity
+      path: ${param.db_path}
+    - type: sqlite_query
+      path: ${param.db_path}
+      query: ${param.query}
+      # Block style: ${...} must not sit inside a YAML flow mapping.
+      expect:
+        min: ${param.expect_min}
