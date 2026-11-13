@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Vet
+        run: go vet -tags integration ./...
+
+      - name: Staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+
+      - name: Govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Unit tests (race)
+        run: go test -race -count=1 ./...
+
+      - name: Integration tests (temporary restic/Borg repos)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y restic borgbackup
+          go test -tags integration -count=1 ./...
+
+      - name: Container tests (Docker)
+        run: |
+          # Build the probe image under its default name so container tests
+          # find it locally (no registry pull needed).
+          docker build -t ghcr.io/restoredrill/restoredrill:latest .
+          go test -tags docker -count=1 ./...
+
+      - name: Docs are up to date
+        run: |
+          go run ./cmd/gendocs
+          git diff --exit-code docs/schema.json docs/config-reference.md

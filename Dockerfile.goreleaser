@@ -1,0 +1,8 @@
+# Release image: GoReleaser copies the prebuilt binary into the build context
+# as "restoredrill". Keep the runtime layer identical to Dockerfile.
+FROM alpine:3.22
+RUN apk add --no-cache restic borgbackup ca-certificates tzdata openssh-client \
+    && restic version && borg --version
+COPY restoredrill /usr/local/bin/restoredrill
+ENTRYPOINT ["/usr/local/bin/restoredrill"]
+CMD ["serve"]
