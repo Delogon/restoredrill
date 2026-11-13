@@ -153,3 +153,66 @@ func TestCLIServeRefusesUnsafeBind(t *testing.T) {
 		t.Fatalf("expected an actionable bind/auth refusal, got: %s", out)
 	}
 }
+
+// TestCLIRecipeCommands covers recipe list/show for bundled and local recipes.
+func TestCLIRecipeCommands(t *testing.T) {
+	dir := t.TempDir()
+
+	// list works without any config file (bundled only).
+	out, code := runCLI(t, dir, "recipe", "list")
+	if code != 0 {
+		t.Fatalf("recipe list rc=%d: %s", code, out)
+	}
+	for _, name := range []string{"generic-files", "postgres-dump", "service1", "service2", "service3", "sqlite-app"} {
+		if !strings.Contains(out, name) {
+			t.Errorf("recipe list missing %q:\n%s", name, out)
+		}
+	}
+
+	// list --json uses the stable envelope.
+	out, code = runCLI(t, dir, "recipe", "list", "--json")
+	if code != 0 {
+		t.Fatalf("recipe list --json rc=%d: %s", code, out)
+	}
+	var env struct {
+		Schema int `json:"schema"`
+		Data   []struct {
+			Name   string `json:"name"`
+			Source string `json:"source"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if env.Schema != 1 || len(env.Data) != 6 {
+		t.Fatalf("unexpected envelope: %+v", env)
+	}
+
+	// show prints the template with its parameters.
+	out, code = runCLI(t, dir, "recipe", "show", "service1")
+	if code != 0 || !strings.Contains(out, "recipe: service1") || !strings.Contains(out, "${param.repository}") {
+		t.Fatalf("recipe show rc=%d: %s", code, out)
+	}
+
+	// Unknown recipe is a usage error.
+	_, code = runCLI(t, dir, "recipe", "show", "no-such-recipe")
+	if code != 2 {
+		t.Fatalf("expected exit 2 for unknown recipe, got %d", code)
+	}
+
+	// Local recipes in <config dir>/recipes/ are listed and shown by name.
+	cfgPath := filepath.Join(dir, "restoredrill.yaml")
+	os.WriteFile(cfgPath, []byte("version: 1\n"), 0o600)
+	os.MkdirAll(filepath.Join(dir, "recipes"), 0o755)
+	local := "recipe: my-local\nversion: 1\ndescription: Local test recipe.\nparams:\n  repository: { required: true }\ndrill:\n  repository: ${param.repository}\n  restore:\n    paths: [/srv/x]\n  checks:\n    - type: files_exist\n      paths: ['**']\n"
+	os.WriteFile(filepath.Join(dir, "recipes", "my-local.yaml"), []byte(local), 0o600)
+
+	out, code = runCLI(t, dir, "recipe", "list", "--config", cfgPath)
+	if code != 0 || !strings.Contains(out, "my-local") {
+		t.Fatalf("local recipe not listed rc=%d: %s", code, out)
+	}
+	out, code = runCLI(t, dir, "recipe", "show", "my-local", "--config", cfgPath)
+	if code != 0 || !strings.Contains(out, "recipe: my-local") {
+		t.Fatalf("recipe show local rc=%d: %s", code, out)
+	}
+}
