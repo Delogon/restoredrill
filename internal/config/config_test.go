@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const mainConfig = `
@@ -266,6 +267,94 @@ drills:
 	}
 	if d.Schedule != "0 5 * * 1" {
 		t.Fatalf("schedule = %q", d.Schedule)
+	}
+}
+
+// TestRecipeNumericParams covers non-string parameters: a substituted scalar
+// must decode into int/bool/duration fields, not stay a quoted string.
+func TestRecipeNumericParams(t *testing.T) {
+	dir := t.TempDir()
+	recipe := `recipe: numapp
+version: 1
+description: numeric params
+params:
+  repository: { required: true }
+  data_path: { required: true }
+  min_count: { default: 1 }
+  max_age: { default: 26h }
+  catch_up: { default: true }
+  tag: { default: v1 }
+drill:
+  repository: ${param.repository}
+  catch_up: ${param.catch_up}
+  snapshot:
+    select: latest
+    tags: ['${param.tag}']
+  restore:
+    paths: ['${param.data_path}']
+  checks:
+    - type: files_exist
+      paths: ['srv/**']
+      min_count: ${param.min_count}
+    - type: snapshot_age
+      max_age: ${param.max_age}
+`
+	if err := os.WriteFile(filepath.Join(dir, "recipe.yaml"), []byte(recipe), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	main := `version: 1
+repositories:
+  r:
+    type: restic
+    repository: /tmp/repo
+drills:
+  d:
+    uses: ./recipe.yaml
+    with:
+      repository: r
+      data_path: /srv/1234
+      min_count: 5
+      catch_up: false
+      tag: 12345
+  defaults:
+    uses: ./recipe.yaml
+    with:
+      repository: r
+      data_path: /srv/app
+`
+	path := filepath.Join(dir, "restoredrill.yaml")
+	if err := os.WriteFile(path, []byte(main), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("recipe load: %v", err)
+	}
+	d := cfg.Drills["d"]
+	if d.Checks[0].MinCount != 5 {
+		t.Errorf("min_count = %d, want 5", d.Checks[0].MinCount)
+	}
+	if d.Checks[1].MaxAge.D() != 26*time.Hour {
+		t.Errorf("max_age = %v, want 26h", d.Checks[1].MaxAge.D())
+	}
+	if d.CatchUp == nil || *d.CatchUp {
+		t.Errorf("catch_up = %v, want false", d.CatchUp)
+	}
+	// A numeric-looking value in a string field stays a string.
+	if d.Restore.Paths[0] != "/srv/1234" {
+		t.Errorf("data_path = %q, want /srv/1234", d.Restore.Paths[0])
+	}
+	// A numeric param value substituted into a string field decodes as a string.
+	if len(d.Snapshot.Tags) != 1 || d.Snapshot.Tags[0] != "12345" {
+		t.Errorf("snapshot tags = %v, want [12345] as string", d.Snapshot.Tags)
+	}
+	// Defaults apply when the parameter is not given.
+	dd := cfg.Drills["defaults"]
+	if dd.Checks[0].MinCount != 1 {
+		t.Errorf("default min_count = %d, want 1", dd.Checks[0].MinCount)
+	}
+	if dd.CatchUp == nil || !*dd.CatchUp {
+		t.Errorf("default catch_up = %v, want true", dd.CatchUp)
 	}
 }
 

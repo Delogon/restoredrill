@@ -61,6 +61,7 @@ func resolveConfigVars(node *yaml.Node, params map[string]string) error {
 		if node.Tag != "!!str" {
 			return nil
 		}
+		orig := node.Value
 		v, err := substituteString(node.Value, func(name string) (string, bool) {
 			switch {
 			case strings.HasPrefix(name, "env."):
@@ -75,8 +76,40 @@ func resolveConfigVars(node *yaml.Node, params map[string]string) error {
 			return err
 		}
 		node.Value = v
+		if v != orig {
+			retagPlainScalar(node)
+		}
 	}
 	return nil
+}
+
+// retagPlainScalar re-resolves the implicit tag of a plain scalar whose value
+// changed during substitution, so a numeric or boolean parameter value decodes
+// into int/bool fields (e.g. min_count: ${param.min_count}). Without this the
+// substituted value keeps its !!str tag, is re-marshalled quoted, and fails
+// strict decoding. Only !!int/!!float/!!bool are adopted: null-like or
+// timestamp-like values must stay strings in string fields. Quoted scalars
+// keep !!str (the author asked for a string), as do values that do not
+// re-parse as a single identical scalar (empty, multi-line, mappings, ...).
+func retagPlainScalar(node *yaml.Node) {
+	if node.Style != 0 {
+		return
+	}
+	var probe yaml.Node
+	if err := yaml.Unmarshal([]byte(node.Value), &probe); err != nil {
+		return
+	}
+	if len(probe.Content) != 1 {
+		return
+	}
+	p := probe.Content[0]
+	if p.Kind != yaml.ScalarNode || p.Value != node.Value {
+		return
+	}
+	switch p.Tag {
+	case "!!int", "!!float", "!!bool":
+		node.Tag = p.Tag
+	}
 }
 
 // SubstituteRuntime replaces ${restore} and ${run.id} in every string field
