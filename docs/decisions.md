@@ -31,6 +31,14 @@ rationale for each. The guiding rule: when in doubt, choose the safer option
   before strict decoding: maps deep-merge, lists replace, drill fields override
   recipe fields. `${restore}` and `${run.id}` are resolved at run time;
   `${env.*}` and `${param.*}` at load time. Unknown variables are errors.
+- **Numeric/boolean recipe params are re-tagged after substitution (M5).**
+  Substitution only touches `!!str` scalars, so `min_count: ${param.min_count}`
+  kept its `!!str` tag, was re-marshalled as `"5"` and failed strict decoding
+  into `int`. After a plain scalar's value changes, its implicit YAML tag is
+  re-resolved and adopted only when it is `!!int`, `!!float` or `!!bool`.
+  Null-like (`null`, `~`) and timestamp-like values stay strings, quoted
+  scalars stay strings, and string fields are unaffected (they decode from the
+  raw value). This lets bundled recipes parameterise counts, ages and toggles.
 - Default `work_dir` is `/var/tmp/restoredrill` (conventional large-temp
   location, usually on disk rather than a small tmpfs). Default `state_dir` is
   `~/.local/state/restoredrill`.
@@ -169,3 +177,51 @@ rationale for each. The guiding rule: when in doubt, choose the safer option
   times; if the last run is older than that (or there is no history) it runs once
   at startup. Tests use daily schedules so a minute boundary cannot fire during
   the test window.
+
+## Recipes and release (M5)
+
+- **Bundled recipes live in `recipes/` and are embedded with `go:embed`.** The
+  package's `init` sets `config.BundledRecipes`; the CLI blank-imports it. This
+  keeps `internal/config` free of any embed/recipe content and lets the config
+  package be tested without recipes. Six recipes ship: `generic-files`,
+  `sqlite-app`, `postgres-dump`, `service1`, `service2`,
+  `service3`. A test expands and validates every one through the full
+  `config.Load` pipeline.
+- **Numeric/boolean params are re-tagged after substitution** (see Config
+  format). This was required so bundled recipes can parameterise `min_count`,
+  `expect.min`, `max_age`, etc.; it is a bug fix to substitution semantics, not
+  a config-format change (working rule #3).
+- **Recipe path pairing.** Check paths are relative to the restore root while
+  `restore.paths`/mounts are absolute, and substitution is plain text (it cannot
+  strip a leading `/`). Recipes that need both forms take a pair of parameters
+  with matching defaults (`data_path` + `db_path`, `dump_path` + `dump_rel`,
+  `config_path` + `config_rel`). A mismatch fails the drill (file not found)
+  rather than passing silently; `restoredrill plan` shows the resolved pairing.
+  Glob checks (`**`, `**/*.pdf`) avoid the pairing where possible.
+- **`${...}` must not appear inside YAML flow collections** (`{ }` / `[ ]`):
+  the `}` closes the flow early. Recipes use block style for substituted
+  `expect:` maps. Quoting is not an option because it forces `!!str` and breaks
+  numeric fields. Documented in `docs/recipes.md`.
+- **`recipe list`/`show` cover bundled and local recipes.** Local recipes are a
+  `recipes/` directory next to the config file; `show` resolves a bare name
+  against bundled first, then that directory (matching `uses:` precedence).
+  `list` works without a config (bundled only). Both support `--json`.
+- **Two Dockerfiles.** `Dockerfile` is multi-stage (builds from source) for the
+  demo compose and local builds; `Dockerfile.goreleaser` copies the
+  GoReleaser-built binary. Both produce the same runtime layer: Alpine +
+  `restic` + `borgbackup` + `ca-certificates` + `tzdata` + `openssh-client`
+  (restic's sftp backend), binary at `/usr/local/bin/restoredrill` to match the
+  probe default. The image is named `ghcr.io/restoredrill/restoredrill` so it is
+  also the default probe image.
+- **Release = GoReleaser v2 + cosign + SBOM.** linux/amd64 + arm64, CGO off,
+  `-trimpath`, version/commit ldflags. Keyless cosign signs the checksum file
+  and the image manifests; one SBOM (syft) per archive. Per-arch images are
+  joined into `:{{.Version}}` and `:latest` manifests. The GitHub owner is a
+  working title and may change before the first release.
+- **Demo compose is file-only** so it needs no Docker socket inside the
+  container. The `seed` service uses the same image (which bundles restic) to
+  init + back up sample data; `drill` runs once and its exit code is the smoke
+  result (`--exit-code-from drill`); `dashboard` serves the UI. The dashboard
+  binds all interfaces in-container (required for the port mapping) and
+  therefore uses basic auth; compose publishes on host loopback only. Demo
+  secrets are public placeholders.

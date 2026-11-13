@@ -28,17 +28,43 @@ See [docs/security.md](docs/security.md) for the full security model.
 
 ## Install
 
-Requires Go 1.24+ to build, and `restic` (>= 0.17) and/or `borg` (1.2 / 1.4) on
-the host that runs drills. Container-based checks additionally need Docker or a
-Docker-compatible Podman socket.
+Requires `restic` (>= 0.17) and/or `borg` (1.2 / 1.4) on the host that runs
+drills. Container-based checks additionally need Docker or a Docker-compatible
+Podman socket.
+
+- **Release binaries** (from the first tagged release): linux/amd64 and
+  linux/arm64 tarballs on GitHub Releases, with SHA-256 checksums, cosign
+  signatures and an SBOM per archive.
+- **Docker image**: `ghcr.io/restoredrill/restoredrill` — Alpine with restic
+  and Borg bundled, binary at `/usr/local/bin/restoredrill`. This is also the
+  probe image used by HTTP checks.
+- **From source** (Go 1.24+):
 
 ```sh
 go build -o restoredrill ./cmd/restoredrill
 ```
 
-A single static binary ships the dashboard; no Node build step is required.
+A single static binary ships the dashboard and all bundled recipes; no Node
+build step is required.
 
-## Quickstart (file-only drill, ~5 minutes)
+## Quickstart A: demo with Docker (~10 minutes, no backup needed)
+
+The fastest way to see a passing drill: a compose stack seeds a throwaway
+restic repository, restores it and checks the result.
+
+```sh
+cd examples/demo
+docker compose up --build --abort-on-container-exit --exit-code-from drill
+# exit code 0 = the drill passed
+
+docker compose up --build -d dashboard
+# open http://127.0.0.1:8484 — admin / change-me (demo credentials)
+```
+
+See [examples/demo/README.md](examples/demo/README.md) for the walkthrough,
+including how to inject a failure and watch the drill catch it.
+
+## Quickstart B: your own backup (file-only drill, ~5 minutes)
 
 ```sh
 # 1. Write an example config and a sample drill.
@@ -236,6 +262,34 @@ the [config reference](docs/config-reference.md) for notifier fields.
 
 > **Do not schedule drills alongside backup `prune`/`compact` jobs.**
 
+## Recipes
+
+Recipes are parameterised drill templates for common self-hosted apps. Use one
+with `uses:` + `with:` instead of writing a drill from scratch:
+
+```yaml
+drills:
+  documents:
+    uses: generic-files
+    with:
+      repository: location1-restic
+      data_path: /srv/documents
+      min_count: 100
+```
+
+Bundled recipes: `generic-files`, `sqlite-app`, `postgres-dump`, `service1`,
+`service2`, `service3`. Drill-level fields override the recipe
+(maps deep-merge, lists replace).
+
+```sh
+restoredrill recipe list               # bundled + local recipes
+restoredrill recipe show service1   # parameters and drill template
+```
+
+Local recipes live in a `recipes/` directory next to your config or are
+referenced by path. See the [recipe authoring guide](docs/recipes.md) for the
+format, parameter rules and path conventions.
+
 ## Commands
 
 ```
@@ -269,11 +323,19 @@ and the [recipe authoring guide](docs/recipes.md).
 go test ./...                          # unit tests
 go test -tags integration ./...        # + real temporary restic/Borg repos
 go test -tags docker ./...             # + container checks (needs Docker)
+go run ./cmd/gendocs                   # regenerate schema + config reference
 ```
 
 Integration tests **only ever create temporary repositories**; they never touch
 real ones. Container tests need a Docker/Podman socket and are skipped
-otherwise.
+otherwise. CI (`.github/workflows/ci.yml`) runs vet, staticcheck, govulncheck,
+`-race` unit tests, integration and container tests, and checks that the
+generated docs are current.
+
+Releases are cut by pushing a `v*` tag: GoReleaser builds linux/amd64 + arm64
+binaries, signs the checksums and image manifests with cosign (keyless),
+attaches SBOMs and publishes the multi-arch image to GHCR. Dry run locally with
+`goreleaser release --snapshot --clean` (no publish, no signing).
 
 ## License
 

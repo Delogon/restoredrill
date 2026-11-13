@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added — Milestone 5 (recipes, releases, Docker image, demo)
+
+- Recipes: six bundled drill templates (`generic-files`, `sqlite-app`,
+  `postgres-dump`, `service1`, `service2`, `service3`) embedded
+  in the binary, plus `restoredrill recipe list | show <name>` for bundled and
+  local recipes (a `recipes/` directory next to the config). Recipe authoring
+  guide in `docs/recipes.md`.
+- Numeric and boolean recipe parameters now work in typed fields
+  (`min_count: ${param.min_count}`): after substitution, plain scalars are
+  re-tagged when they resolve to `!!int`, `!!float` or `!!bool`.
+- Release tooling: GoReleaser (linux/amd64 + arm64, CGO off, version/commit
+  ldflags), cosign keyless signatures over checksums and image manifests, one
+  SBOM per archive, multi-arch image `ghcr.io/restoredrill/restoredrill`
+  (Alpine + restic + Borg, binary at `/usr/local/bin/restoredrill` — the probe
+  image default). CI workflow: vet, staticcheck, govulncheck, `-race` unit
+  tests, integration + container tests, generated-docs drift check.
+- Demo compose stack (`examples/demo/`): seeds a throwaway restic repository,
+  runs a `generic-files` drill and serves the dashboard. Smoke test via
+  `docker compose up --abort-on-container-exit --exit-code-from drill`;
+  walkthrough in `examples/demo/README.md`.
+
 ### Added — Milestone 4 (serve: scheduler, dashboard, API, metrics, notifications)
 
 - `restoredrill serve`: one process running the cron scheduler, web dashboard,
@@ -103,7 +124,7 @@ All notable changes to this project are documented here. The format is based on
 
 ### Notes
 
-- Recipes and release tooling land in milestone 5. `postgres_restore` and
-  service drills need a Docker/Podman socket and are exercised by the
-  `docker`-tagged container tests (run `go test -tags docker ./...` on a host
-  with a reachable socket).
+- All five milestones are implemented. `postgres_restore` and service drills
+  need a Docker/Podman socket and are exercised by the `docker`-tagged
+  container tests (run `go test -tags docker ./...` on a host with a reachable
+  socket).
