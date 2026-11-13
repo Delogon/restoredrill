@@ -2,7 +2,6 @@ package checks
 
 import (
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -73,10 +72,4 @@ func GlobFiles(root string, patterns []string) ([]string, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-// fileExists is a small helper used by several checks.
-func fileExists(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && !fi.IsDir()
 }

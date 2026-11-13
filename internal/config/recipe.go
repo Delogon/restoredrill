@@ -45,7 +45,7 @@ func LoadRecipe(name, dir string) (*Recipe, error) {
 		}
 		b, err := os.ReadFile(p)
 		if err != nil {
-			return nil, fmt.Errorf("recipe %q: %w — check the path in uses:", name, err)
+			return nil, fmt.Errorf("recipe %q: %w — check the path in uses", name, err)
 		}
 		data = b
 		source = p
@@ -135,7 +135,7 @@ func expandRecipe(drillNode *yaml.Node, dir string) error {
 			continue
 		}
 		if p.Required {
-			return fmt.Errorf("drill uses %q: missing required parameter %q — set it under with:", name, pname)
+			return fmt.Errorf("drill uses %q: missing required parameter %q — set it under with", name, pname)
 		}
 	}
 

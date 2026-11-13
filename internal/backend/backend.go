@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -139,32 +138,4 @@ func SelectSnapshot(snaps []Snapshot, sel Selection, now time.Time) (Snapshot, e
 // SortSnapshots sorts by time ascending (stable for equal times).
 func SortSnapshots(snaps []Snapshot) {
 	sort.SliceStable(snaps, func(i, j int) bool { return snaps[i].Time.Before(snaps[j].Time) })
-}
-
-// pathMatches reports whether a snapshot covering snapPaths satisfies a
-// filter path: either path may be a prefix of the other.
-func pathMatches(snapPaths []string, filter string) bool {
-	for _, p := range snapPaths {
-		if p == filter || strings.HasPrefix(p, filter+"/") || strings.HasPrefix(filter, p+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// hasAllTags reports whether tags contains every wanted tag.
-func hasAllTags(tags, wanted []string) bool {
-	for _, w := range wanted {
-		found := false
-		for _, t := range tags {
-			if t == w {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
 }
